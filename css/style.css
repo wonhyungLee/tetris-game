@@ -694,17 +694,15 @@ body.game-active {
     }
     
     #gameCanvas {
-        /* 모바일에서 고정 크기로 설정 */
-        width: 240px !important;
-        height: 480px !important;
+        /* 모바일에서 정확한 1:2 비율 유지 */
+        width: 224px;
+        height: 448px;
+        /* 화면에 맞게 조정하되 비율 유지 */
+        max-width: calc(100vw - 30px);
+        max-height: calc(100vh - 250px);
         /* 비율이 깨지지 않도록 강제 */
         aspect-ratio: 1 / 2;
         object-fit: contain;
-        /* 터치 제어 */
-        touch-action: none;
-        user-select: none;
-        -webkit-user-select: none;
-        -webkit-touch-callout: none;
     }
     
     .mobile-controls {
@@ -729,18 +727,13 @@ body.game-active {
         min-height: 120px;
     }
     
-    /* 모바일에서는 게임오버 화면 숨기고 팝업만 사용 */
+    /* 모바일에서만 팝업 표시, PC에서는 일반 화면 */
     #gameOverScreen {
         display: none !important;
     }
     
-    /* 모바일 팝업은 기본적으로 숨김 */
+    /* 모바일 팝업 활성화 */
     .mobile-popup {
-        display: none;
-    }
-    
-    /* hidden 클래스가 없을 때만 표시 */
-    .mobile-popup:not(.hidden) {
         display: flex !important;
     }
     
@@ -885,17 +878,15 @@ body.game-active {
     }
     
     #gameCanvas {
-        /* 소형 모바일에서 고정 크기 */
-        width: 200px !important;
-        height: 400px !important;
+        /* 소형 모바일에서도 정확한 1:2 비율 유지 */
+        width: 196px;
+        height: 392px;
+        /* 화면에 맞게 조정하되 비율 유지 */
+        max-width: calc(100vw - 20px);
+        max-height: calc(100vh - 220px);
         /* 비율이 깨지지 않도록 강제 */
         aspect-ratio: 1 / 2;
         object-fit: contain;
-        /* 터치 제어 */
-        touch-action: none;
-        user-select: none;
-        -webkit-user-select: none;
-        -webkit-touch-callout: none;
     }
     
     .mobile-controls {
@@ -1092,18 +1083,14 @@ body.game-active {
     width: 100%;
     height: 100%;
     z-index: 10000;
-    display: none;
+    display: flex;
     align-items: center;
     justify-content: center;
     padding: 20px;
 }
 
-.mobile-popup:not(.hidden) {
-    display: flex;
-}
-
 .mobile-popup.hidden {
-    display: none !important;
+    display: none;
 }
 
 .popup-overlay {

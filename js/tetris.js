@@ -1,4 +1,4 @@
-// 테트리스 게임 클래스
+// 테트리스 게임 클래스 - 모바일 문제 수정 버전
 class TetrisGame {
     constructor() {
         // 게임 보드 설정 - 정확한 1:2 비율
@@ -156,8 +156,10 @@ class TetrisGame {
         document.body.classList.add('game-active');
         
         // 게임 캔버스에만 터치 제어 적용
-        this.canvas.addEventListener('touchmove', this.preventCanvasScroll, { passive: false });
-        this.canvas.addEventListener('touchstart', this.preventCanvasScroll, { passive: false });
+        if (this.canvas) {
+            this.canvas.addEventListener('touchmove', this.preventCanvasScroll, { passive: false });
+            this.canvas.addEventListener('touchstart', this.preventCanvasScroll, { passive: false });
+        }
         
         // 모바일 컨트롤 버튼에도 적용
         document.querySelectorAll('.control-btn').forEach(btn => {
@@ -171,8 +173,10 @@ class TetrisGame {
         document.body.classList.remove('game-active');
         
         // 게임 캔버스에서 터치 제어 제거
-        this.canvas.removeEventListener('touchmove', this.preventCanvasScroll);
-        this.canvas.removeEventListener('touchstart', this.preventCanvasScroll);
+        if (this.canvas) {
+            this.canvas.removeEventListener('touchmove', this.preventCanvasScroll);
+            this.canvas.removeEventListener('touchstart', this.preventCanvasScroll);
+        }
         
         // 모바일 컨트롤 버튼에서도 제거
         document.querySelectorAll('.control-btn').forEach(btn => {
@@ -187,97 +191,64 @@ class TetrisGame {
     }
     
     init() {
-        // 보드는 항상 먼저 초기화 (캔버스와 무관하게 크기가 고정됨)
+        this.initCanvas();
         this.initBoard();
-        
-        // 모바일에서는 초기화 순서를 약간 다르게
-        if (this.isMobile) {
-            // 먼저 DOM 이벤트 바인딩
-            this.bindEvents();
-            // 화면 표시
-            this.showStartScreen();
-            // 나중에 캔버스 초기화
-            setTimeout(() => {
-                this.initCanvas();
-            }, 100);
-        } else {
-            this.initCanvas();
-            this.bindEvents();
-            this.showStartScreen();
-        }
+        this.bindEvents();
+        this.showStartScreen();
     }
     
     initCanvas() {
         this.canvas = document.getElementById('gameCanvas');
-        this.nextCanvas = document.getElementById('nextCanvas');
-        
-        // 캔버스가 존재하는지 확인
-        if (!this.canvas || !this.nextCanvas) {
-            console.error('Canvas elements not found');
-            return false;
-        }
-        
         this.ctx = this.canvas.getContext('2d');
+        this.nextCanvas = document.getElementById('nextCanvas');
         this.nextCtx = this.nextCanvas.getContext('2d');
-        
-        if (!this.ctx || !this.nextCtx) {
-            console.error('Canvas context not available');
-            return false;
-        }
-        
-        // 고해상도 디스플레이 대응
+    
         const devicePixelRatio = window.devicePixelRatio || 1;
-        
-        // 기본 캔버스 크기
-        let canvasWidth = 300;
-        let canvasHeight = 600;
-        
-        // 모바일에서 화면 크기에 맞게 조정
-        if (this.isMobile) {
-            const maxWidth = Math.min(window.innerWidth - 40, 300);
-            const maxHeight = Math.min(window.innerHeight - 280, 600);
-            const scale = Math.min(maxWidth / 300, maxHeight / 600, 1); // 최대 크기는 원본 크기
-            canvasWidth = Math.floor(300 * scale);
-            canvasHeight = Math.floor(600 * scale);
-        }
-        
-        // 블록 크기를 캔버스 크기에 맞게 재계산
-        this.BLOCK_SIZE = canvasWidth / this.BOARD_WIDTH;
-        
-        // 메인 캔버스 - 정확한 비율 설정
-        this.canvas.width = canvasWidth * devicePixelRatio;
-        this.canvas.height = canvasHeight * devicePixelRatio;
+    
+        // 게임 보드의 논리적 크기(10x20)와 블록 크기(30px)를 기반으로 캔버스 크기를 명확하게 설정합니다.
+        const canvasWidth = this.BOARD_WIDTH * this.BLOCK_SIZE; // 10 * 30 = 300
+        const canvasHeight = this.BOARD_HEIGHT * this.BLOCK_SIZE; // 20 * 30 = 600
+    
+        // 1. 캔버스의 CSS 크기를 설정합니다.
         this.canvas.style.width = canvasWidth + 'px';
         this.canvas.style.height = canvasHeight + 'px';
+    
+        // 2. 고해상도 디스플레이(레티나 등)에 대응하기 위해 캔버스의 실제 버퍼 크기를 설정합니다.
+        this.canvas.width = canvasWidth * devicePixelRatio;
+        this.canvas.height = canvasHeight * devicePixelRatio;
+    
+        // 3. 캔버스 컨텍스트의 스케일을 조정하여 선명하게 렌더링되도록 합니다.
         this.ctx.scale(devicePixelRatio, devicePixelRatio);
-        
-        // 다음 피스 캔버스
-        this.nextCanvas.width = 60 * devicePixelRatio;
-        this.nextCanvas.height = 60 * devicePixelRatio;
-        this.nextCanvas.style.width = '60px';
-        this.nextCanvas.style.height = '60px';
+    
+        // '다음 블록' 캔버스도 동일한 방식으로 설정합니다.
+        const nextCanvasSize = 60;
+        this.nextCanvas.style.width = nextCanvasSize + 'px';
+        this.nextCanvas.style.height = nextCanvasSize + 'px';
+        this.nextCanvas.width = nextCanvasSize * devicePixelRatio;
+        this.nextCanvas.height = nextCanvasSize * devicePixelRatio;
         this.nextCtx.scale(devicePixelRatio, devicePixelRatio);
-        
-        console.log('Canvas initialized:', {
-            width: canvasWidth,
-            height: canvasHeight,
-            blockSize: this.BLOCK_SIZE,
-            boardWidth: this.BOARD_WIDTH,
-            boardHeight: this.BOARD_HEIGHT,
-            isMobile: this.isMobile
-        });
-        
-        return true;
     }
     
     initBoard() {
-        this.board = Array(this.BOARD_HEIGHT).fill().map(() => Array(this.BOARD_WIDTH).fill(0));
-        console.log('Board initialized:', {
-            width: this.BOARD_WIDTH,
-            height: this.BOARD_HEIGHT,
-            boardLength: this.board.length,
-            firstRowLength: this.board[0] ? this.board[0].length : 0
-        });
+        // 보드를 안전하게 초기화
+        this.board = [];
+        for (let row = 0; row < this.BOARD_HEIGHT; row++) {
+            this.board[row] = [];
+            for (let col = 0; col < this.BOARD_WIDTH; col++) {
+                this.board[row][col] = 0;
+            }
+        }
+        
+        // 초기화 검증
+        if (this.board.length !== this.BOARD_HEIGHT) {
+            console.error("보드 높이 초기화 실패:", this.board.length, "!=", this.BOARD_HEIGHT);
+        }
+        
+        if (this.board[0] && this.board[0].length !== this.BOARD_WIDTH) {
+            console.error("보드 너비 초기화 실패:", this.board[0].length, "!=", this.BOARD_WIDTH);
+        }
+        
+        console.log("보드 초기화 완료:", this.board.length, "x", this.board[0] ? this.board[0].length : 'undefined');
     }
     
     bindEvents() {
@@ -312,12 +283,12 @@ class TetrisGame {
             this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), {passive: false});
             this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), {passive: false});
             this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), {passive: false});
+            
+            // 마우스 컨트롤 (데스크탑에서도 사용 가능)
+            this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+            this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+            this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
         }
-        
-        // 마우스 컨트롤 (데스크탑에서도 사용 가능)
-        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
         
         // 닉네임 입력 엔터키
         document.getElementById('nicknameInput').addEventListener('keypress', (e) => {
@@ -351,13 +322,6 @@ class TetrisGame {
         document.getElementById('gameScreen').classList.remove('hidden');
         // 게임 화면에서는 modal-active 클래스 제거
         document.body.classList.remove('modal-active');
-        
-        // 모바일에서 캔버스가 아직 초기화되지 않았다면 다시 시도
-        if (this.isMobile && (!this.canvas || !this.ctx)) {
-            setTimeout(() => {
-                this.initCanvas();
-            }, 50);
-        }
     }
     
     showGameOverScreen() {
@@ -389,10 +353,13 @@ class TetrisGame {
         document.getElementById('mobileFinalLevel').textContent = this.level;
         
         // 팝업 오버레이 클릭 시 닫기
-        document.querySelector('.popup-overlay').addEventListener('click', () => {
-            this.hideMobileGameOverPopup();
-            this.showStartScreen();
-        });
+        const overlay = document.querySelector('.popup-overlay');
+        if (overlay) {
+            overlay.addEventListener('click', () => {
+                this.hideMobileGameOverPopup();
+                this.showStartScreen();
+            });
+        }
     }
     
     // 모바일 게임 오버 팝업 숨기기
@@ -418,7 +385,39 @@ class TetrisGame {
         this.hideMobileGameOverPopup();
     }
     
-    // 게임 시작
+    // 게임 상태 초기화
+    resetGame() {
+        this.score = 0;
+        this.level = 1;
+        this.lines = 0;
+        this.gameRunning = false;
+        this.gamePaused = false;
+        this.gameOver = false;
+        this.canContinue = false;
+        this.dropInterval = 1000;
+        this.lastTime = 0;
+        this.currentPiece = null;
+        this.nextPiece = null;
+        
+        // 보드 초기화를 더 안전하게
+        this.initBoard();
+        
+        // 모바일에서 추가 초기화 확인
+        if (this.isMobile) {
+            // 캔버스 다시 초기화
+            setTimeout(() => {
+                this.initCanvas();
+            }, 10);
+        }
+        
+        console.log("게임 상태 초기화 완료", {
+            isMobile: this.isMobile,
+            boardHeight: this.board ? this.board.length : 'undefined',
+            canvasSize: this.canvas ? { width: this.canvas.width, height: this.canvas.height } : 'undefined'
+        });
+    }
+
+    // 게임 시작 - 개선된 버전
     startGame() {
         const nicknameInput = document.getElementById('nicknameInput');
         this.playerName = nicknameInput.value.trim() || 'Anonymous';
@@ -430,90 +429,65 @@ class TetrisGame {
         
         document.getElementById('playerName').textContent = this.playerName;
         
-        // 게임 상태 초기화
-        this.score = 0;
-        this.level = 1;
-        this.lines = 0;
-        this.gameOver = false;
-        this.canContinue = false;
-        this.dropInterval = 1000;
-        this.gameRunning = false;
-        this.gamePaused = false;
+        // 게임 상태를 완전히 초기화합니다.
+        this.resetGame();
         
-        // 보드를 먼저 초기화 (모든 칸을 0으로)
-        this.board = [];
-        for (let i = 0; i < this.BOARD_HEIGHT; i++) {
-            this.board[i] = [];
-            for (let j = 0; j < this.BOARD_WIDTH; j++) {
-                this.board[i][j] = 0;
+        // 모바일 브라우저의 렌더링 시간을 확보하기 위해 더 긴 지연을 줍니다.
+        setTimeout(() => {
+            // 캔버스가 완전히 초기화되었는지 확인
+            if (!this.canvas || !this.ctx) {
+                console.error("캔버스 초기화 실패");
+                this.showStartScreen();
+                return;
             }
-        }
-        
-        // 보드 상태 확인
-        console.log('Board state after init:', {
-            boardLength: this.board.length,
-            firstRow: this.board[0],
-            isAllZero: this.board.every(row => row.every(cell => cell === 0))
-        });
-        
-        // 캔버스 재초기화 (모바일에서 중요)
-        this.initCanvas();
-        
-        // 모바일에서는 약간의 지연을 주어 DOM이 완전히 준비되도록 함
-        if (this.isMobile) {
-            this.showGameScreen();
             
-            setTimeout(() => {
-                // 캔버스가 제대로 초기화되었는지 확인
-                const canvasReady = this.initCanvas();
-                if (!canvasReady) {
-                    console.error('Canvas initialization failed');
-                    alert('게임 초기화에 실패했습니다. 페이지를 새로고침해주세요.');
-                    return;
+            // 보드가 올바르게 초기화되었는지 확인
+            if (!this.board || this.board.length !== this.BOARD_HEIGHT) {
+                console.error("보드 초기화 실패");
+                this.initBoard(); // 보드 재초기화
+            }
+            
+            // 다음 블록 생성
+            this.generateNextPiece();
+            
+            // 현재 블록 생성 - 안전한 위치에서 시작
+            this.spawnNewPieceSafe();
+            
+            // 게임 오버 상태가 아닌지 다시 한 번 확인
+            if (this.gameOver) {
+                console.error("게임 시작 실패 - 보드 상태:", JSON.stringify(this.board));
+                console.error("현재 블록:", this.currentPiece);
+                
+                // 모바일에서 재시도 기회 제공
+                if (this.isMobile) {
+                    if (confirm("게임 시작에 실패했습니다. 다시 시도하시겠습니까?")) {
+                        this.startGame();
+                        return;
+                    }
                 }
                 
-                this.generateNextPiece();
-                this.spawnNewPiece();
-                
-                this.updateDisplay();
-                
-                // 게임 영역 터치 제어 활성화
-                this.disableScroll();
-                
-                // modal-active 클래스 제거 (게임 시작 시)
-                document.body.classList.remove('modal-active');
-                
-                this.gameRunning = true;
-                this.gamePaused = false;
-                
-                // 게임 루프 시작
-                this.lastTime = performance.now();
-                this.gameLoop();
-                
-                if (soundManager) soundManager.playBgm(this.level);
-            }, 200); // 모바일에서는 더 긴 지연
-        } else {
-            this.generateNextPiece();
-            this.spawnNewPiece();
+                this.showStartScreen();
+                return;
+            }
             
             this.updateDisplay();
             this.showGameScreen();
             
-            // 게임 영역 터치 제어 활성화
             this.disableScroll();
-            
-            // modal-active 클래스 제거 (게임 시작 시)
             document.body.classList.remove('modal-active');
             
             this.gameRunning = true;
-            this.gamePaused = false;
-            
-            // 게임 루프 시작
             this.lastTime = performance.now();
             this.gameLoop();
             
             if (soundManager) soundManager.playBgm(this.level);
-        }
+            
+            console.log("게임 시작 성공", {
+                isMobile: this.isMobile,
+                boardSize: this.board.length,
+                currentPiece: this.currentPiece ? this.currentPiece.type : 'none'
+            });
+        }, this.isMobile ? 200 : 50); // 모바일에서 더 긴 지연
     }
     
     // 새 게임 시작 (게임 오버 후)
@@ -539,805 +513,100 @@ class TetrisGame {
         this.showStartScreen();
     }
     
-    // 일시정지 토글
-    togglePause() {
-        if (!this.gameRunning || this.gameOver) return;
-        
-        this.gamePaused = !this.gamePaused;
-        
-        if (this.gamePaused) {
-            // 일시정지 시 모바일 게임 모드 해제 (화면 전환을 위해)
-            this.enableScroll();
-            this.hideAllScreens();
-            document.getElementById('pauseScreen').classList.remove('hidden');
-            
-            // 전체화면 모드에서 일시정지 화면 중앙 정렬 강제
-            if (this.isFullscreen) {
-                // 즉시 적용하고 추가로 지연 적용으로 확실히 보장
-                this.forceFullscreenGameOverCenter();
-                setTimeout(() => {
-                    this.forceFullscreenGameOverCenter();
-                }, 50);
-                setTimeout(() => {
-                    this.forceFullscreenGameOverCenter();
-                }, 200);
-            }
-            
-            if (soundManager) soundManager.playPause();
-        } else {
-            // 게임 재개 시 모바일 게임 모드 다시 활성화
-            document.body.classList.remove('modal-active'); // modal-active 클래스 제거
-            this.disableScroll();
-            this.hideAllScreens();
-            document.getElementById('gameScreen').classList.remove('hidden');
-            if (soundManager) soundManager.resumeFromPause();
-            this.lastTime = performance.now();
-            this.gameLoop();
-        }
-    }
-    
-    // 광고 시청 (실제 광고 표시)
-    showAd() {
-        document.getElementById('adSection').classList.remove('hidden');
-        
-        // 광고 로딩 메시지 표시
-        const adSection = document.getElementById('adSection');
-        adSection.innerHTML = `
-            <div style="text-align: center; padding: 20px;">
-                <div class="loading"></div>
-                <p style="margin-top: 10px;">광고를 로드 중입니다...</p>
-            </div>
-            <button id="continueAfterAdBtn" class="hidden">광고 시청 완료 - 게임 계속하기</button>
-        `;
-        
-        // 실제 AdSense 광고 로드 시도
-        setTimeout(() => {
-            try {
-                // 새로운 광고 컨테이너 생성
-                const adContainer = document.createElement('ins');
-                adContainer.className = 'adsbygoogle';
-                adContainer.style.cssText = 'display:block; width:300px; height:250px; margin:20px auto; background: rgba(255,255,255,0.1); border-radius: 10px;';
-                adContainer.setAttribute('data-ad-client', 'ca-pub-9238912314245514');
-                adContainer.setAttribute('data-ad-slot', '1234567890');
-                adContainer.setAttribute('data-ad-format', 'rectangle');
-                
-                // 로딩 메시지를 광고로 교체
-                adSection.innerHTML = '';
-                adSection.appendChild(adContainer);
-                
-                // 시청 완료 버튼 추가
-                const continueBtn = document.createElement('button');
-                continueBtn.id = 'continueAfterAdBtn';
-                continueBtn.className = 'hidden';
-                continueBtn.textContent = '광고 시청 완료 - 게임 계속하기';
-                continueBtn.addEventListener('click', () => this.continueAfterAd());
-                adSection.appendChild(continueBtn);
-                
-                // AdSense 로드
-                (adsbygoogle = window.adsbygoogle || []).push({});
-                
-                console.log('광고 로드 시도');
-                
-                // 광고가 로드되지 않으면 대체 내용 표시
-                setTimeout(() => {
-                    if (adContainer.innerHTML === '') {
-                        adContainer.innerHTML = `
-                            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: white; text-align: center; flex-direction: column;">
-                                <div style="font-size: 2em; margin-bottom: 10px;">🎮</div>
-                                <div>공에서 제공하는 게임</div>
-                                <div style="font-size: 0.8em; margin-top: 5px; opacity: 0.7;">잠시 후 계속할 수 있습니다</div>
-                            </div>
-                        `;
-                    }
-                }, 2000);
-                
-            } catch (error) {
-                console.log('광고 로드 실패:', error);
-                // 오류 시 대체 내용 표시
-                adSection.innerHTML = `
-                    <div style="text-align: center; padding: 20px; background: rgba(255,255,255,0.1); border-radius: 10px; margin: 20px 0;">
-                        <div style="font-size: 2em; margin-bottom: 10px;">🎮</div>
-                        <div>게임을 계속하려면 잠시 기다려주세요</div>
-                    </div>
-                    <button id="continueAfterAdBtn" class="hidden">게임 계속하기</button>
-                `;
-                document.getElementById('continueAfterAdBtn').addEventListener('click', () => this.continueAfterAd());
-            }
-        }, 1000);
-        
-        // 5초 후 계속 버튼 활성화
-        setTimeout(() => {
-            const continueBtn = document.getElementById('continueAfterAdBtn');
-            if (continueBtn) {
-                continueBtn.classList.remove('hidden');
-                continueBtn.style.opacity = '1';
-                continueBtn.style.pointerEvents = 'auto';
-            }
-        }, 5000);
-    }
-    
-    // 광고 시청 후 계속하기
-    continueAfterAd() {
-        if (!this.canContinue) return;
-        
-        this.gameOver = false;
-        this.canContinue = false;
-        
-        // 보드만 초기화 (점수, 레벨은 유지)
-        this.initBoard();
-        
-        // 새로운 피스 생성
-        this.generateNextPiece();
-        this.spawnNewPiece();
-        
-        this.showGameScreen();
-        
-        // 계속 플레이 시 게임 영역 터치 제어 활성화
-        this.disableScroll();
-        
-        // modal-active 클래스 제거 (게임 재시작 시)
-        document.body.classList.remove('modal-active');
-        
-        this.gameRunning = true;
-        this.gamePaused = false;
-        this.lastTime = performance.now();
-        this.gameLoop();
-        
-        if (soundManager) soundManager.playBgm(this.level);
-        
-        // 광고 섹션 숨기기
-        document.getElementById('adSection').classList.add('hidden');
-        
-        console.log('광고 시청 후 게임 재시작 - 점수 유지, 보드 초기화');
-    }
-    
-    // 모바일 광고 시청
-    showMobileAd() {
-        document.getElementById('mobileAdSection').classList.remove('hidden');
-        
-        // 광고 로딩 메시지 표시
-        const adSection = document.getElementById('mobileAdSection');
-        adSection.innerHTML = `
-            <div style="text-align: center; padding: 20px;">
-                <div class="loading"></div>
-                <p style="margin-top: 10px;">광고를 로드 중입니다...</p>
-            </div>
-            <button id="mobileContinueAfterAdBtn" class="hidden">광고 시청 완료 - 게임 계속하기</button>
-        `;
-        
-        // 실제 AdSense 광고 로드 시도
-        setTimeout(() => {
-            try {
-                // 새로운 광고 컨테이너 생성
-                const adContainer = document.createElement('ins');
-                adContainer.className = 'adsbygoogle mobile-ad';
-                adContainer.style.cssText = 'display:block; width:280px; height:200px; margin:15px auto; background: rgba(255,255,255,0.1); border-radius: 10px;';
-                adContainer.setAttribute('data-ad-client', 'ca-pub-9238912314245514');
-                adContainer.setAttribute('data-ad-slot', '1234567890');
-                adContainer.setAttribute('data-ad-format', 'rectangle');
-                
-                // 로딩 메시지를 광고로 교체
-                adSection.innerHTML = '';
-                adSection.appendChild(adContainer);
-                
-                // 시청 완료 버튼 추가
-                const continueBtn = document.createElement('button');
-                continueBtn.id = 'mobileContinueAfterAdBtn';
-                continueBtn.className = 'hidden';
-                continueBtn.textContent = '광고 시청 완료 - 게임 계속하기';
-                continueBtn.addEventListener('click', () => this.continueAfterMobileAd());
-                adSection.appendChild(continueBtn);
-                
-                // AdSense 로드
-                (adsbygoogle = window.adsbygoogle || []).push({});
-                
-                // 광고가 로드되지 않으면 대체 내용 표시
-                setTimeout(() => {
-                    if (adContainer.innerHTML === '') {
-                        adContainer.innerHTML = `
-                            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: white; text-align: center; flex-direction: column;">
-                                <div style="font-size: 2em; margin-bottom: 10px;">🎮</div>
-                                <div>공에서 제공하는 게임</div>
-                                <div style="font-size: 0.8em; margin-top: 5px; opacity: 0.7;">잠시 후 계속할 수 있습니다</div>
-                            </div>
-                        `;
-                    }
-                }, 2000);
-                
-            } catch (error) {
-                console.log('모바일 광고 로드 실패:', error);
-                // 오류 시 대체 내용 표시
-                adSection.innerHTML = `
-                    <div style="text-align: center; padding: 20px; background: rgba(255,255,255,0.1); border-radius: 10px; margin: 20px 0;">
-                        <div style="font-size: 2em; margin-bottom: 10px;">🎮</div>
-                        <div>게임을 계속하려면 잠시 기다려주세요</div>
-                    </div>
-                    <button id="mobileContinueAfterAdBtn" class="hidden">게임 계속하기</button>
-                `;
-                document.getElementById('mobileContinueAfterAdBtn').addEventListener('click', () => this.continueAfterMobileAd());
-            }
-        }, 1000);
-        
-        // 5초 후 계속 버튼 활성화
-        setTimeout(() => {
-            const continueBtn = document.getElementById('mobileContinueAfterAdBtn');
-            if (continueBtn) {
-                continueBtn.classList.remove('hidden');
-                continueBtn.style.opacity = '1';
-                continueBtn.style.pointerEvents = 'auto';
-            }
-        }, 5000);
-    }
-    
-    // 모바일 광고 시청 후 계속하기
-    continueAfterMobileAd() {
-        if (!this.canContinue) return;
-        
-        this.gameOver = false;
-        this.canContinue = false;
-        
-        // 보드만 초기화 (점수, 레벨은 유지)
-        this.initBoard();
-        
-        // 새로운 피스 생성
-        this.generateNextPiece();
-        this.spawnNewPiece();
-        
-        // 팝업 숨기기
-        this.hideMobileGameOverPopup();
-        
-        this.showGameScreen();
-        
-        // 계속 플레이 시 게임 영역 터치 제어 활성화
-        this.disableScroll();
-        
-        // modal-active 클래스 제거 (게임 재시작 시)
-        document.body.classList.remove('modal-active');
-        
-        this.gameRunning = true;
-        this.gamePaused = false;
-        this.lastTime = performance.now();
-        this.gameLoop();
-        
-        if (soundManager) soundManager.playBgm(this.level);
-        
-        console.log('모바일 광고 시청 후 게임 재시작 - 점수 유지, 보드 초기화');
-    }
-    
-    // 전체화면 토글
-    toggleFullscreen() {
-        if (!this.isFullscreen) {
-            this.enterFullscreen();
-        } else {
-            this.exitFullscreen();
-        }
-    }
-    
-    // 전체화면 진입
-    enterFullscreen() {
-        const elem = document.documentElement;
-        
-        if (elem.requestFullscreen) {
-            elem.requestFullscreen();
-        } else if (elem.webkitRequestFullscreen) { /* Safari */
-            elem.webkitRequestFullscreen();
-        } else if (elem.msRequestFullscreen) { /* IE11 */
-            elem.msRequestFullscreen();
-        }
-        
-        // 전체화면 스타일 적용
-        document.body.classList.add('fullscreen-mode');
-        this.isFullscreen = true;
-        
-        // 버튼 텍스트 변경
-        document.getElementById('fullscreenBtn').innerHTML = '⤋';
-        document.getElementById('fullscreenBtn').title = '전체화면 해제';
-        
-        // 캔버스 크기 조정 및 화면 상태 체크
-        setTimeout(() => {
-            this.resizeCanvasForFullscreen();
-            
-            // 현재 화면이 게임 오버나 일시정지인 경우 중앙 정렬 강제 - 다단계 적용
-            if (!document.getElementById('gameOverScreen').classList.contains('hidden') ||
-                !document.getElementById('pauseScreen').classList.contains('hidden')) {
-                // 즉시 적용
-                this.forceFullscreenGameOverCenter();
-                // 50ms 후 재적용
-                setTimeout(() => this.forceFullscreenGameOverCenter(), 50);
-                // 150ms 후 재적용
-                setTimeout(() => this.forceFullscreenGameOverCenter(), 150);
-                // 300ms 후 최종 적용
-                setTimeout(() => this.forceFullscreenGameOverCenter(), 300);
-            }
-        }, 100);
-        
-        // 둘러보기 방지용 추가 체크 (500ms, 1s 후)
-        setTimeout(() => {
-            if (!document.getElementById('gameOverScreen').classList.contains('hidden') ||
-                !document.getElementById('pauseScreen').classList.contains('hidden')) {
-                this.forceFullscreenGameOverCenter();
-            }
-        }, 500);
-        
-        setTimeout(() => {
-            if (!document.getElementById('gameOverScreen').classList.contains('hidden') ||
-                !document.getElementById('pauseScreen').classList.contains('hidden')) {
-                this.forceFullscreenGameOverCenter();
-            }
-        }, 1000);
-    }
-    
-    // 전체화면 해제
-    exitFullscreen() {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) { /* Safari */
-            document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) { /* IE11 */
-            document.msExitFullscreen();
-        }
-        
-        // 전체화면 스타일 제거
-        document.body.classList.remove('fullscreen-mode');
-        document.body.classList.remove('modal-active'); // modal-active 클래스도 제거
-        this.isFullscreen = false;
-        
-        // 버튼 텍스트 변경
-        document.getElementById('fullscreenBtn').innerHTML = '⛶';
-        document.getElementById('fullscreenBtn').title = '전체화면';
-        
-        // 캔버스 크기 복원
-        setTimeout(() => {
-            this.initCanvas();
-        }, 100);
-    }
-    
-    // 전체화면에서 게임 오버 화면 중앙 정렬 강제 - 완벽한 최종 버전
-    forceFullscreenGameOverCenter() {
-        const gameOverScreen = document.getElementById('gameOverScreen');
-        const pauseScreen = document.getElementById('pauseScreen');
-        
-        // 모달 화면이 활성화된 경우만 modal-active 클래스 추가
-        const isModalActive = (gameOverScreen && !gameOverScreen.classList.contains('hidden')) ||
-                              (pauseScreen && !pauseScreen.classList.contains('hidden'));
-        
-        if (isModalActive) {
-            document.body.classList.add('modal-active');
-        } else {
-            document.body.classList.remove('modal-active');
-            return; // 모달이 비활성 상태면 중앙 정렬 실행 안함
-        }
-        
-        if (gameOverScreen && !gameOverScreen.classList.contains('hidden')) {
-            // 전체화면 모드 강제 적용
-            document.body.classList.add('fullscreen-mode');
-            
-            // 모든 인라인 스타일 완전 초기화 후 새로 적용
-            gameOverScreen.removeAttribute('style');
-            
-            // CSS 클래스로 먼저 처리한 다음 인라인으로 확실히 고정
-            setTimeout(() => {
-                this.applyFullscreenCenterStyles(gameOverScreen);
-            }, 10);
-        }
-        
-        if (pauseScreen && !pauseScreen.classList.contains('hidden')) {
-            // 전체화면 모드 강제 적용
-            document.body.classList.add('fullscreen-mode');
-            
-            // 모든 인라인 스타일 완전 초기화 후 새로 적용
-            pauseScreen.removeAttribute('style');
-            
-            // CSS 클래스로 먼저 처리한 다음 인라인으로 확실히 고정
-            setTimeout(() => {
-                this.applyFullscreenCenterStyles(pauseScreen);
-            }, 10);
-        }
-    }
-    
-    // 전체화면 중앙 정렬 스타일 적용 (별도 메서드)
-    applyFullscreenCenterStyles(screen) {
-        // 기본 전체화면 레이아웃 - 무조건 Flexbox 중앙 정렬
-        screen.style.cssText = `
-            all: initial !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            margin: 0 !important;
-            padding: 20px !important;
-            box-sizing: border-box !important;
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: center !important;
-            align-items: center !important;
-            text-align: center !important;
-            background: rgba(0, 0, 0, 0.9) !important;
-            backdrop-filter: blur(10px) !important;
-            z-index: 10000 !important;
-            font-family: Arial, sans-serif !important;
-            color: white !important;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
-            overflow-y: auto !important;
-        `;
-        
-        // 모든 직계 자식 요소들 스타일 재설정
-        Array.from(screen.children).forEach(child => {
-            child.style.cssText = `
-                display: block !important;
-                width: auto !important;
-                max-width: min(90vw, 500px) !important;
-                min-width: 280px !important;
-                margin: 10px auto !important;
-                text-align: center !important;
-                position: relative !important;
-                left: auto !important;
-                right: auto !important;
-                top: auto !important;
-                bottom: auto !important;
-                transform: none !important;
-                float: none !important;
-                font-family: inherit !important;
-                color: inherit !important;
-            `;
-            
-            // 특정 요소별 추가 스타일
-            if (child.tagName === 'H2') {
-                child.style.cssText += `
-                    font-size: 2.5em !important;
-                    margin: 20px auto !important;
-                    color: ${screen.id === 'gameOverScreen' ? '#e74c3c' : '#3498db'} !important;
-                    text-shadow: 0 2px 8px ${screen.id === 'gameOverScreen' ? 'rgba(231, 76, 60, 0.5)' : 'rgba(52, 152, 219, 0.5)'} !important;
-                `;
-            }
-            
-            if (child.classList.contains('final-score') || child.classList.contains('continue-section')) {
-                const bgColor = child.classList.contains('final-score') ? 
-                    'linear-gradient(135deg, rgba(231,76,60,0.2), rgba(230,126,34,0.2))' :
-                    'linear-gradient(135deg, rgba(52,152,219,0.2), rgba(46,204,113,0.2))';
-                    
-                child.style.cssText += `
-                    background: ${bgColor} !important;
-                    padding: 20px !important;
-                    border-radius: 15px !important;
-                    backdrop-filter: blur(15px) !important;
-                    border: 2px solid rgba(255,255,255,0.2) !important;
-                    box-shadow: 0 8px 25px rgba(52, 152, 219, 0.2) !important;
-                    width: 80% !important;
-                `;
-            }
-            
-            // 모든 하위 버튼들 스타일
-            const buttons = child.querySelectorAll('button');
-            buttons.forEach(button => {
-                button.style.cssText = `
-                    padding: 15px 25px !important;
-                    font-size: 1.1em !important;
-                    background: linear-gradient(45deg, #3498db, #2ecc71) !important;
-                    color: white !important;
-                    border: 2px solid transparent !important;
-                    border-radius: 25px !important;
-                    cursor: pointer !important;
-                    transition: all 0.3s ease !important;
-                    margin: 5px !important;
-                    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3) !important;
-                    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
-                    font-weight: bold !important;
-                    font-family: Arial, sans-serif !important;
-                `;
-            });
-        });
-        
-        // 컨테이너가 있다면 완전히 제거
-        const container = screen.querySelector('.container');
-        if (container) {
-            container.style.cssText = 'all: unset !important; display: contents !important;';
-        }
-    }
-    
-    // 전체화면용 캔버스 크기 조정 - 정확한 1:2 비율 유지
-    resizeCanvasForFullscreen() {
-        const availableHeight = window.innerHeight - 120; // 헤더와 컨트롤 여백 고려
-        const availableWidth = window.innerWidth - 400; // 사이드 패널 여백 고려
-        
-        // 게임 비율 유지 (10:20 = 1:2) - 정확한 비율
-        const gameRatio = 0.5; // 1:2 비율 (width:height)
-        
-        let canvasWidth, canvasHeight;
-        
-        // 사용 가능한 공간에 맞게 크기 결정하되 정확한 비율 유지
-        if (availableWidth / gameRatio <= availableHeight) {
-            // 너비가 제한 요소
-            canvasWidth = Math.min(availableWidth, 400); // 최대 400px
-            canvasHeight = canvasWidth / gameRatio; // 정확히 2배
-        } else {
-            // 높이가 제한 요소
-            canvasHeight = Math.min(availableHeight, 800); // 최대 800px
-            canvasWidth = canvasHeight * gameRatio; // 정확히 절반
-        }
-        
-        // 최소 크기 보장하되 비율 유지
-        if (canvasWidth < 250) {
-            canvasWidth = 250;
-            canvasHeight = canvasWidth / gameRatio; // 500px
-        }
-        if (canvasHeight < 500) {
-            canvasHeight = 500;
-            canvasWidth = canvasHeight * gameRatio; // 250px
-        }
-        
-        // 보드 크기에 맞게 블록 크기 재계산
-        this.BLOCK_SIZE = canvasWidth / this.BOARD_WIDTH;
-        
-        // 캔버스 크기 업데이트
-        const devicePixelRatio = window.devicePixelRatio || 1;
-        
-        this.canvas.width = canvasWidth * devicePixelRatio;
-        this.canvas.height = canvasHeight * devicePixelRatio;
-        this.canvas.style.width = canvasWidth + 'px';
-        this.canvas.style.height = canvasHeight + 'px';
-        this.ctx.scale(devicePixelRatio, devicePixelRatio);
-        
-        // 즉시 화면 다시 그리기
-        if (this.gameRunning) {
-            this.draw();
-        }
-    }
-    
-    // 전체화면 상태 변경 처리
-    handleFullscreenChange() {
-        const isCurrentlyFullscreen = !!(document.fullscreenElement || 
-                                        document.webkitFullscreenElement || 
-                                        document.msFullscreenElement);
-        
-        if (!isCurrentlyFullscreen && this.isFullscreen) {
-            // 전체화면에서 나온 경우
-            this.isFullscreen = false;
-            document.body.classList.remove('fullscreen-mode');
-            document.body.classList.remove('modal-active'); // modal-active 클래스도 제거
-            document.getElementById('fullscreenBtn').innerHTML = '⛶';
-            document.getElementById('fullscreenBtn').title = '전체화면';
-            
-            setTimeout(() => {
-                this.initCanvas();
-            }, 100);
-        } else if (isCurrentlyFullscreen && this.isFullscreen) {
-            // 전체화면 모드에서 게임 오버/일시정지 화면 체크 및 강제 적용
-            setTimeout(() => {
-                if (!document.getElementById('gameOverScreen').classList.contains('hidden') ||
-                    !document.getElementById('pauseScreen').classList.contains('hidden')) {
-                    this.forceFullscreenGameOverCenter();
-                    // 추가 확인 및 재적용
-                    setTimeout(() => {
-                        this.forceFullscreenGameOverCenter();
-                    }, 100);
-                }
-            }, 100);
-            
-            // 더 늦게 한 번 더 확실히 적용
-            setTimeout(() => {
-                if (!document.getElementById('gameOverScreen').classList.contains('hidden') ||
-                    !document.getElementById('pauseScreen').classList.contains('hidden')) {
-                    this.forceFullscreenGameOverCenter();
-                }
-            }, 500);
-        }
-    }
-    
-    // 키보드 입력 처리
-    handleKeyDown(e) {
-        if (!this.gameRunning || this.gamePaused || this.gameOver) return;
-        
-        switch (e.key) {
-            case 'ArrowLeft':
-                this.movePiece(-1, 0);
-                break;
-            case 'ArrowRight':
-                this.movePiece(1, 0);
-                break;
-            case 'ArrowDown':
-                this.movePiece(0, 1);
-                break;
-            case 'ArrowUp':  // 상단 화살표만 회전
-                this.rotatePiece();
-                break;
-            case ' ':  // 스페이스바는 하드드롭
-                this.hardDrop();
-                break;
-            case 'Enter':  // 엔터도 하드드롭 유지
-                this.hardDrop();
-                break;
-        }
-        e.preventDefault();
-    }
-    
-    // 터치 입력 처리
-    handleTouchStart(e) {
-        if (!this.gameRunning || this.gamePaused || this.gameOver) return;
-        
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (e.touches.length > 0) {
-            const touch = e.touches[0];
-            this.touchStartX = touch.clientX;
-            this.touchStartY = touch.clientY;
-            this.touchStartTime = Date.now();
-            this.isDragging = false;
-        }
-    }
-    
-    handleTouchMove(e) {
-        if (!this.gameRunning || this.gamePaused || this.gameOver) return;
-        
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (e.touches.length > 0) {
-            const touch = e.touches[0];
-            const deltaX = touch.clientX - this.touchStartX;
-            const deltaY = touch.clientY - this.touchStartY;
-            
-            // 드래그 감지
-            if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
-                this.isDragging = true;
-                
-                // 수평 이동
-                if (Math.abs(deltaX) > this.minSwipeDistance / 2) {
-                    if (deltaX > 0) {
-                        this.movePiece(1, 0);
-                    } else {
-                        this.movePiece(-1, 0);
-                    }
-                    this.touchStartX = touch.clientX;
-                }
-            }
-        }
-    }
-    
-    handleTouchEnd(e) {
-        if (!this.gameRunning || this.gamePaused || this.gameOver) return;
-        
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const touchDuration = Date.now() - this.touchStartTime;
-        
-        if (!this.isDragging && touchDuration < 300) {
-            // 짧은 터치 = 회전
-            this.rotatePiece();
-        } else if (this.isDragging && e.changedTouches.length > 0) {
-            const touch = e.changedTouches[0];
-            const deltaY = touch.clientY - this.touchStartY;
-            
-            // 아래로 스와이프 = 하드드롭
-            if (deltaY > this.minSwipeDistance) {
-                this.hardDrop();
-            }
-        }
-    }
-    
-    // 마우스 입력 처리 (터치와 동일한 로직)
-    handleMouseDown(e) {
-        this.touchStartX = e.clientX;
-        this.touchStartY = e.clientY;
-        this.touchStartTime = Date.now();
-        this.isDragging = false;
-    }
-    
-    handleMouseMove(e) {
-        if (e.buttons !== 1) return; // 마우스 버튼이 눌려있지 않으면 리턴
-        
-        const deltaX = e.clientX - this.touchStartX;
-        const deltaY = e.clientY - this.touchStartY;
-        
-        if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
-            this.isDragging = true;
-            
-            if (Math.abs(deltaX) > this.minSwipeDistance / 2) {
-                if (deltaX > 0) {
-                    this.movePiece(1, 0);
-                } else {
-                    this.movePiece(-1, 0);
-                }
-                this.touchStartX = e.clientX;
-            }
-        }
-    }
-    
-    handleMouseUp(e) {
-        const touchDuration = Date.now() - this.touchStartTime;
-        
-        if (!this.isDragging && touchDuration < 300) {
-            this.rotatePiece();
-        } else if (this.isDragging) {
-            const deltaY = e.clientY - this.touchStartY;
-            if (deltaY > this.minSwipeDistance) {
-                this.hardDrop();
-            }
-        }
-    }
-    
     // 새로운 피스 생성
     generateNextPiece() {
         const randomIndex = Math.floor(Math.random() * this.pieceTypes.length);
         const pieceType = this.pieceTypes[randomIndex];
         
-        // shape를 복사하여 원본이 변경되지 않도록 함
-        const originalShape = this.pieces[pieceType].shape;
-        const shapeCopy = originalShape.map(row => [...row]);
-        
         this.nextPiece = {
             type: pieceType,
-            shape: shapeCopy,
+            shape: this.pieces[pieceType].shape,
             color: this.pieces[pieceType].color,
             x: 0,
             y: 0
         };
-        
-        console.log('Generated next piece:', {
-            type: pieceType,
-            shapeSize: [shapeCopy.length, shapeCopy[0].length]
-        });
     }
     
-    spawnNewPiece() {
-        // 보드가 제대로 초기화되었는지 먼저 확인
-        if (!this.board || this.board.length !== this.BOARD_HEIGHT) {
-            console.error('Cannot spawn piece - board not properly initialized');
-            return;
-        }
-        
+    // 안전한 블록 생성 (게임 시작용)
+    spawnNewPieceSafe() {
         if (!this.nextPiece) {
             this.generateNextPiece();
         }
         
-        // nextPiece가 유효한지 확인
-        if (!this.nextPiece || !this.nextPiece.shape) {
-            console.error('Invalid next piece');
-            return;
-        }
+        // 블록 시작 위치 계산
+        const startX = Math.floor(this.BOARD_WIDTH / 2) - Math.floor(this.nextPiece.shape[0].length / 2);
+        const startY = 0;
         
-        // 피스의 시작 위치 계산
-        const pieceWidth = this.nextPiece.shape[0].length;
-        const startX = Math.floor(this.BOARD_WIDTH / 2) - Math.floor(pieceWidth / 2);
-        
-        // 시작 위치가 유효한지 확인
-        if (startX < 0 || startX + pieceWidth > this.BOARD_WIDTH) {
-            console.error('Invalid start position:', {
-                startX,
-                pieceWidth,
-                boardWidth: this.BOARD_WIDTH
-            });
+        // 안전한 위치 확인
+        if (startX < 0 || startX + this.nextPiece.shape[0].length > this.BOARD_WIDTH) {
+            console.error("블록 시작 위치가 보드를 벗어남:", { startX, pieceWidth: this.nextPiece.shape[0].length, boardWidth: this.BOARD_WIDTH });
+            this.gameOver = true;
             return;
         }
         
         this.currentPiece = {
             ...this.nextPiece,
             x: startX,
+            y: startY
+        };
+        
+        // 보드가 완전히 비어있는지 확인 (게임 시작 시)
+        const topRowEmpty = this.board[0] && this.board[0].every(cell => cell === 0);
+        if (!topRowEmpty) {
+            console.error("게임 시작 시 최상단 행이 비어있지 않음:", this.board[0]);
+            this.gameOver = true;
+            return;
+        }
+        
+        // 첫 번째 행에서만 충돌 검사 (더 관대한 검사)
+        let hasCollision = false;
+        for (let row = 0; row < Math.min(2, this.currentPiece.shape.length); row++) {
+            for (let col = 0; col < this.currentPiece.shape[row].length; col++) {
+                if (this.currentPiece.shape[row][col]) {
+                    const boardX = this.currentPiece.x + col;
+                    const boardY = this.currentPiece.y + row;
+                    
+                    if (boardY >= 0 && boardY < this.BOARD_HEIGHT && 
+                        boardX >= 0 && boardX < this.BOARD_WIDTH) {
+                        if (this.board[boardY][boardX] !== 0) {
+                            hasCollision = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (hasCollision) break;
+        }
+        
+        if (hasCollision) {
+            console.error("게임 시작 시 블록 충돌 감지");
+            this.gameOver = true;
+            return;
+        }
+        
+        this.generateNextPiece();
+        this.drawNextPiece();
+        
+        console.log("블록 생성 성공:", {
+            type: this.currentPiece.type,
+            position: { x: this.currentPiece.x, y: this.currentPiece.y },
+            boardTopRow: this.board[0].slice(0, 5) // 처음 5개 셀만 로그
+        });
+    }
+    
+    spawnNewPiece() {
+        if (!this.nextPiece) {
+            this.generateNextPiece();
+        }
+        
+        this.currentPiece = {
+            ...this.nextPiece,
+            x: Math.floor(this.BOARD_WIDTH / 2) - Math.floor(this.nextPiece.shape[0].length / 2),
             y: 0
         };
         
-        console.log('Spawning new piece:', {
-            type: this.currentPiece.type,
-            x: this.currentPiece.x,
-            y: this.currentPiece.y,
-            shapeSize: [this.currentPiece.shape.length, this.currentPiece.shape[0].length],
-            boardSize: [this.BOARD_HEIGHT, this.BOARD_WIDTH]
-        });
-        
         // 게임 오버 체크
         if (this.checkCollision(this.currentPiece.x, this.currentPiece.y, this.currentPiece.shape)) {
-            console.error('Game over on spawn - collision detected at:', {
-                x: this.currentPiece.x,
-                y: this.currentPiece.y
-            });
-            // 보드의 맨 위 줄 상태 확인
-            console.log('Top row state:', this.board[0]);
-            console.log('Second row state:', this.board[1]);
             this.endGame();
             return;
         }
@@ -1420,22 +689,6 @@ class TetrisGame {
     
     // 충돌 검사
     checkCollision(x, y, shape) {
-        // 보드가 제대로 초기화되었는지 확인
-        if (!this.board || this.board.length !== this.BOARD_HEIGHT) {
-            console.error('Board not initialized properly:', {
-                board: this.board ? 'exists' : 'null',
-                length: this.board ? this.board.length : 0,
-                expectedHeight: this.BOARD_HEIGHT
-            });
-            return true;
-        }
-        
-        // shape가 유효한지 확인
-        if (!shape || !Array.isArray(shape) || shape.length === 0) {
-            console.error('Invalid shape:', shape);
-            return true;
-        }
-        
         for (let row = 0; row < shape.length; row++) {
             for (let col = 0; col < shape[row].length; col++) {
                 if (shape[row][col]) {
@@ -1443,29 +696,14 @@ class TetrisGame {
                     const newY = y + row;
                     
                     // 경계 검사
-                    if (newX < 0 || newX >= this.BOARD_WIDTH) {
-                        return true; // 좌우 벽 충돌
+                    if (newX < 0 || newX >= this.BOARD_WIDTH || 
+                        newY >= this.BOARD_HEIGHT) {
+                        return true;
                     }
                     
-                    if (newY >= this.BOARD_HEIGHT) {
-                        return true; // 바닥 충돌
-                    }
-                    
-                    // 보드와의 충돌 검사 (y가 0 이상일 때만)
-                    if (newY >= 0) {
-                        // 보드 행이 존재하는지 확인
-                        if (!this.board[newY] || this.board[newY].length !== this.BOARD_WIDTH) {
-                            console.error('Invalid board row:', {
-                                row: newY,
-                                rowData: this.board[newY],
-                                expectedWidth: this.BOARD_WIDTH
-                            });
-                            return true;
-                        }
-                        
-                        if (this.board[newY][newX]) {
-                            return true;
-                        }
+                    // 보드와의 충돌 검사
+                    if (newY >= 0 && this.board[newY][newX]) {
+                        return true;
                     }
                 }
             }
@@ -1642,18 +880,6 @@ class TetrisGame {
         
         // 게임 오버 시 현재 상태 저장 (점수, 레벨, 라인은 유지)
         console.log('게임 오버 - 점수:', this.score, '레벨:', this.level, '라인:', this.lines);
-        
-        // 전체화면 모드에서 게임 오버 화면 중앙 정렬 강제
-        if (this.isFullscreen) {
-            // 즉시 적용하고 추가로 지연 적용으로 확실히 보장
-            this.forceFullscreenGameOverCenter();
-            setTimeout(() => {
-                this.forceFullscreenGameOverCenter();
-            }, 50);
-            setTimeout(() => {
-                this.forceFullscreenGameOverCenter();
-            }, 200);
-        }
         
         this.showGameOverScreen();
     }
@@ -1915,6 +1141,327 @@ class TetrisGame {
         document.getElementById('level').textContent = this.level;
         document.getElementById('lines').textContent = this.lines;
     }
+    
+    // 입력 처리 메서드들 (터치, 키보드, 마우스)
+    handleKeyDown(e) {
+        if (!this.gameRunning || this.gamePaused || this.gameOver) return;
+        
+        switch (e.key) {
+            case 'ArrowLeft':
+                this.movePiece(-1, 0);
+                break;
+            case 'ArrowRight':
+                this.movePiece(1, 0);
+                break;
+            case 'ArrowDown':
+                this.movePiece(0, 1);
+                break;
+            case 'ArrowUp':
+                this.rotatePiece();
+                break;
+            case ' ':
+                this.hardDrop();
+                break;
+            case 'Enter':
+                this.hardDrop();
+                break;
+        }
+        e.preventDefault();
+    }
+    
+    handleTouchStart(e) {
+        if (!this.gameRunning || this.gamePaused || this.gameOver) return;
+        
+        e.preventDefault();
+        const touch = e.touches[0];
+        this.touchStartX = touch.clientX;
+        this.touchStartY = touch.clientY;
+        this.touchStartTime = Date.now();
+        this.isDragging = false;
+    }
+    
+    handleTouchMove(e) {
+        if (!this.gameRunning || this.gamePaused || this.gameOver) return;
+        
+        e.preventDefault();
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - this.touchStartX;
+        const deltaY = touch.clientY - this.touchStartY;
+        
+        if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+            this.isDragging = true;
+            
+            if (Math.abs(deltaX) > this.minSwipeDistance / 2) {
+                if (deltaX > 0) {
+                    this.movePiece(1, 0);
+                } else {
+                    this.movePiece(-1, 0);
+                }
+                this.touchStartX = touch.clientX;
+            }
+        }
+    }
+    
+    handleTouchEnd(e) {
+        if (!this.gameRunning || this.gamePaused || this.gameOver) return;
+        
+        e.preventDefault();
+        const touchDuration = Date.now() - this.touchStartTime;
+        
+        if (!this.isDragging && touchDuration < 300) {
+            this.rotatePiece();
+        } else if (this.isDragging) {
+            const touch = e.changedTouches[0];
+            const deltaY = touch.clientY - this.touchStartY;
+            
+            if (deltaY > this.minSwipeDistance) {
+                this.hardDrop();
+            }
+        }
+    }
+    
+    handleMouseDown(e) {
+        this.touchStartX = e.clientX;
+        this.touchStartY = e.clientY;
+        this.touchStartTime = Date.now();
+        this.isDragging = false;
+    }
+    
+    handleMouseMove(e) {
+        if (e.buttons !== 1) return;
+        
+        const deltaX = e.clientX - this.touchStartX;
+        const deltaY = e.clientY - this.touchStartY;
+        
+        if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+            this.isDragging = true;
+            
+            if (Math.abs(deltaX) > this.minSwipeDistance / 2) {
+                if (deltaX > 0) {
+                    this.movePiece(1, 0);
+                } else {
+                    this.movePiece(-1, 0);
+                }
+                this.touchStartX = e.clientX;
+            }
+        }
+    }
+    
+    handleMouseUp(e) {
+        const touchDuration = Date.now() - this.touchStartTime;
+        
+        if (!this.isDragging && touchDuration < 300) {
+            this.rotatePiece();
+        } else if (this.isDragging) {
+            const deltaY = e.clientY - this.touchStartY;
+            if (deltaY > this.minSwipeDistance) {
+                this.hardDrop();
+            }
+        }
+    }
+    
+    // 일시정지 토글
+    togglePause() {
+        if (!this.gameRunning || this.gameOver) return;
+        
+        this.gamePaused = !this.gamePaused;
+        
+        if (this.gamePaused) {
+            this.enableScroll();
+            this.hideAllScreens();
+            document.getElementById('pauseScreen').classList.remove('hidden');
+            
+            if (soundManager) soundManager.playPause();
+        } else {
+            document.body.classList.remove('modal-active');
+            this.disableScroll();
+            this.hideAllScreens();
+            document.getElementById('gameScreen').classList.remove('hidden');
+            if (soundManager) soundManager.resumeFromPause();
+            this.lastTime = performance.now();
+            this.gameLoop();
+        }
+    }
+    
+    // 전체화면 토글
+    toggleFullscreen() {
+        if (!this.isFullscreen) {
+            this.enterFullscreen();
+        } else {
+            this.exitFullscreen();
+        }
+    }
+    
+    enterFullscreen() {
+        const elem = document.documentElement;
+        
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) {
+            elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) {
+            elem.msRequestFullscreen();
+        }
+        
+        document.body.classList.add('fullscreen-mode');
+        this.isFullscreen = true;
+        
+        document.getElementById('fullscreenBtn').innerHTML = '⤋';
+        document.getElementById('fullscreenBtn').title = '전체화면 해제';
+        
+        setTimeout(() => {
+            this.resizeCanvasForFullscreen();
+        }, 100);
+    }
+    
+    exitFullscreen() {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        }
+        
+        document.body.classList.remove('fullscreen-mode');
+        document.body.classList.remove('modal-active');
+        this.isFullscreen = false;
+        
+        document.getElementById('fullscreenBtn').innerHTML = '⛶';
+        document.getElementById('fullscreenBtn').title = '전체화면';
+        
+        setTimeout(() => {
+            this.initCanvas();
+        }, 100);
+    }
+    
+    resizeCanvasForFullscreen() {
+        const availableHeight = window.innerHeight - 120;
+        const availableWidth = window.innerWidth - 400;
+        
+        const gameRatio = 0.5;
+        
+        let canvasWidth, canvasHeight;
+        
+        if (availableWidth / gameRatio <= availableHeight) {
+            canvasWidth = Math.min(availableWidth, 400);
+            canvasHeight = canvasWidth / gameRatio;
+        } else {
+            canvasHeight = Math.min(availableHeight, 800);
+            canvasWidth = canvasHeight * gameRatio;
+        }
+        
+        if (canvasWidth < 250) {
+            canvasWidth = 250;
+            canvasHeight = canvasWidth / gameRatio;
+        }
+        if (canvasHeight < 500) {
+            canvasHeight = 500;
+            canvasWidth = canvasHeight * gameRatio;
+        }
+        
+        this.BLOCK_SIZE = canvasWidth / this.BOARD_WIDTH;
+        
+        const devicePixelRatio = window.devicePixelRatio || 1;
+        
+        this.canvas.width = canvasWidth * devicePixelRatio;
+        this.canvas.height = canvasHeight * devicePixelRatio;
+        this.canvas.style.width = canvasWidth + 'px';
+        this.canvas.style.height = canvasHeight + 'px';
+        this.ctx.scale(devicePixelRatio, devicePixelRatio);
+        
+        if (this.gameRunning) {
+            this.draw();
+        }
+    }
+    
+    handleFullscreenChange() {
+        const isCurrentlyFullscreen = !!(document.fullscreenElement || 
+                                        document.webkitFullscreenElement || 
+                                        document.msFullscreenElement);
+        
+        if (!isCurrentlyFullscreen && this.isFullscreen) {
+            this.isFullscreen = false;
+            document.body.classList.remove('fullscreen-mode');
+            document.body.classList.remove('modal-active');
+            document.getElementById('fullscreenBtn').innerHTML = '⛶';
+            document.getElementById('fullscreenBtn').title = '전체화면';
+            
+            setTimeout(() => {
+                this.initCanvas();
+            }, 100);
+        }
+    }
+    
+    // 광고 관련 메서드들 (기본 버전만 포함)
+    showAd() {
+        document.getElementById('adSection').classList.remove('hidden');
+        
+        setTimeout(() => {
+            const continueBtn = document.getElementById('continueAfterAdBtn');
+            if (continueBtn) {
+                continueBtn.classList.remove('hidden');
+            }
+        }, 3000);
+    }
+    
+    continueAfterAd() {
+        if (!this.canContinue) return;
+        
+        this.gameOver = false;
+        this.canContinue = false;
+        
+        this.initBoard();
+        this.generateNextPiece();
+        this.spawnNewPiece();
+        
+        this.showGameScreen();
+        this.disableScroll();
+        document.body.classList.remove('modal-active');
+        
+        this.gameRunning = true;
+        this.gamePaused = false;
+        this.lastTime = performance.now();
+        this.gameLoop();
+        
+        if (soundManager) soundManager.playBgm(this.level);
+        
+        document.getElementById('adSection').classList.add('hidden');
+    }
+    
+    showMobileAd() {
+        document.getElementById('mobileAdSection').classList.remove('hidden');
+        
+        setTimeout(() => {
+            const continueBtn = document.getElementById('mobileContinueAfterAdBtn');
+            if (continueBtn) {
+                continueBtn.classList.remove('hidden');
+            }
+        }, 3000);
+    }
+    
+    continueAfterMobileAd() {
+        if (!this.canContinue) return;
+        
+        this.gameOver = false;
+        this.canContinue = false;
+        
+        this.initBoard();
+        this.generateNextPiece();
+        this.spawnNewPiece();
+        
+        this.hideMobileGameOverPopup();
+        this.showGameScreen();
+        this.disableScroll();
+        document.body.classList.remove('modal-active');
+        
+        this.gameRunning = true;
+        this.gamePaused = false;
+        this.lastTime = performance.now();
+        this.gameLoop();
+        
+        if (soundManager) soundManager.playBgm(this.level);
+    }
 }
 
 // 게임 인스턴스 생성
@@ -1922,23 +1469,5 @@ let tetrisGame;
 
 // DOM 로드 완료 시 게임 초기화
 document.addEventListener('DOMContentLoaded', () => {
-// 모바일에서는 약간의 지연을 주어 완전히 로드되도록 함
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-if (isMobile) {
-// 모바일에서는 화면이 완전히 로드된 후 초기화
-if (document.readyState === 'complete') {
-    setTimeout(() => {
-            tetrisGame = new TetrisGame();
-    }, 200);
-    } else {
-            window.addEventListener('load', () => {
-                setTimeout(() => {
-                    tetrisGame = new TetrisGame();
-                }, 200);
-            });
-        }
-    } else {
-        tetrisGame = new TetrisGame();
-    }
+    tetrisGame = new TetrisGame();
 });
