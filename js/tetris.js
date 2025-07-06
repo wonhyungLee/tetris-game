@@ -198,33 +198,30 @@ class TetrisGame {
         this.ctx = this.canvas.getContext('2d');
         this.nextCanvas = document.getElementById('nextCanvas');
         this.nextCtx = this.nextCanvas.getContext('2d');
-        
-        // 고해상도 디스플레이 대응
+    
         const devicePixelRatio = window.devicePixelRatio || 1;
-        
-        // 정확한 1:2 비율 유지 (10칸 × 20칸)
-        let canvasWidth = this.BOARD_WIDTH * this.BLOCK_SIZE;  // 280px
-        let canvasHeight = this.BOARD_HEIGHT * this.BLOCK_SIZE; // 560px
-        
-        // CSS에서 설정된 크기와 맞추기 위해 300x600으로 조정
-        canvasWidth = 300;
-        canvasHeight = 600;
-        
-        // 블록 크기를 캔버스 크기에 맞게 재계산
-        this.BLOCK_SIZE = canvasWidth / this.BOARD_WIDTH; // 30px
-        
-        // 메인 캔버스 - 정확한 비율 설정
-        this.canvas.width = canvasWidth * devicePixelRatio;
-        this.canvas.height = canvasHeight * devicePixelRatio;
+    
+        // 게임 보드의 논리적 크기(10x20)와 블록 크기(30px)를 기반으로 캔버스 크기를 명확하게 설정합니다.
+        const canvasWidth = this.BOARD_WIDTH * this.BLOCK_SIZE; // 10 * 30 = 300
+        const canvasHeight = this.BOARD_HEIGHT * this.BLOCK_SIZE; // 20 * 30 = 600
+    
+        // 1. 캔버스의 CSS 크기를 설정합니다.
         this.canvas.style.width = canvasWidth + 'px';
         this.canvas.style.height = canvasHeight + 'px';
+    
+        // 2. 고해상도 디스플레이(레티나 등)에 대응하기 위해 캔버스의 실제 버퍼 크기를 설정합니다.
+        this.canvas.width = canvasWidth * devicePixelRatio;
+        this.canvas.height = canvasHeight * devicePixelRatio;
+    
+        // 3. 캔버스 컨텍스트의 스케일을 조정하여 선명하게 렌더링되도록 합니다.
         this.ctx.scale(devicePixelRatio, devicePixelRatio);
-        
-        // 다음 피스 캔버스
-        this.nextCanvas.width = 60 * devicePixelRatio;
-        this.nextCanvas.height = 60 * devicePixelRatio;
-        this.nextCanvas.style.width = '60px';
-        this.nextCanvas.style.height = '60px';
+    
+        // '다음 블록' 캔버스도 동일한 방식으로 설정합니다.
+        const nextCanvasSize = 60;
+        this.nextCanvas.style.width = nextCanvasSize + 'px';
+        this.nextCanvas.style.height = nextCanvasSize + 'px';
+        this.nextCanvas.width = nextCanvasSize * devicePixelRatio;
+        this.nextCanvas.height = nextCanvasSize * devicePixelRatio;
         this.nextCtx.scale(devicePixelRatio, devicePixelRatio);
     }
     
@@ -361,6 +358,20 @@ class TetrisGame {
         this.hideMobileGameOverPopup();
     }
     
+    // 게임 상태 초기화
+    resetGame() {
+        this.score = 0;
+        this.level = 1;
+        this.lines = 0;
+        this.gameRunning = false;
+        this.gamePaused = false;
+        this.gameOver = false;
+        this.canContinue = false;
+        this.dropInterval = 1000;
+        this.lastTime = 0;
+        this.initBoard();
+    }
+
     // 게임 시작
     startGame() {
         const nicknameInput = document.getElementById('nicknameInput');
@@ -373,35 +384,35 @@ class TetrisGame {
         
         document.getElementById('playerName').textContent = this.playerName;
         
-        // 게임 초기화
-        this.score = 0;
-        this.level = 1;
-        this.lines = 0;
-        this.gameOver = false;
-        this.canContinue = false;
-        this.dropInterval = 1000;
+        // 게임 상태를 완전히 초기화합니다.
+        this.resetGame();
         
-        this.initBoard();
-        this.generateNextPiece();
-        this.spawnNewPiece();
-        
-        this.updateDisplay();
-        this.showGameScreen();
-        
-        // 게임 영역 터치 제어 활성화
-        this.disableScroll();
-        
-        // modal-active 클래스 제거 (게임 시작 시)
-        document.body.classList.remove('modal-active');
-        
-        this.gameRunning = true;
-        this.gamePaused = false;
-        
-        // 게임 루프 시작
-        this.lastTime = performance.now();
-        this.gameLoop();
-        
-        if (soundManager) soundManager.playBgm(this.level);
+        // 모바일 브라우저의 렌더링 시간을 확보하기 위해 짧은 지연을 줍니다.
+        setTimeout(() => {
+            this.generateNextPiece();
+            this.spawnNewPiece();
+            
+            // 만약 새 블록 생성 직후 게임 오버가 ���다면, 이는 초기화 오류일 가능성이 높습니다.
+            // 이 경우, 게임을 시작하지 않고 문제를 기록합니다.
+            if (this.gameOver) {
+                console.error("게임 시작 직후 게임 오버 발생. 보드 상태:", JSON.stringify(this.board));
+                // 사용자에게 다시 시도해달라는 메시지를 보여줄 수도 있습니다.
+                this.showStartScreen(); // 시작 화면으로 돌려보내기
+                return;
+            }
+            
+            this.updateDisplay();
+            this.showGameScreen();
+            
+            this.disableScroll();
+            document.body.classList.remove('modal-active');
+            
+            this.gameRunning = true;
+            this.lastTime = performance.now();
+            this.gameLoop();
+            
+            if (soundManager) soundManager.playBgm(this.level);
+        }, 50); // 50ms 지연
     }
     
     // 새 게임 시작 (게임 오버 후)
