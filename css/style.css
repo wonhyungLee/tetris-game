@@ -694,15 +694,17 @@ body.game-active {
     }
     
     #gameCanvas {
-        /* 모바일에서 정확한 1:2 비율 유지 */
-        width: 224px;
-        height: 448px;
-        /* 화면에 맞게 조정하되 비율 유지 */
-        max-width: calc(100vw - 30px);
-        max-height: calc(100vh - 250px);
+        /* 모바일에서 고정 크기로 설정 */
+        width: 240px !important;
+        height: 480px !important;
         /* 비율이 깨지지 않도록 강제 */
         aspect-ratio: 1 / 2;
         object-fit: contain;
+        /* 터치 제어 */
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
     }
     
     .mobile-controls {
@@ -883,15 +885,17 @@ body.game-active {
     }
     
     #gameCanvas {
-        /* 소형 모바일에서도 정확한 1:2 비율 유지 */
-        width: 196px;
-        height: 392px;
-        /* 화면에 맞게 조정하되 비율 유지 */
-        max-width: calc(100vw - 20px);
-        max-height: calc(100vh - 220px);
+        /* 소형 모바일에서 고정 크기 */
+        width: 200px !important;
+        height: 400px !important;
         /* 비율이 깨지지 않도록 강제 */
         aspect-ratio: 1 / 2;
         object-fit: contain;
+        /* 터치 제어 */
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
     }
     
     .mobile-controls {
