@@ -1,4 +1,4 @@
-// 테트리스 게임 클래스 - 모바일 문제 수정 버전
+// 테트리스 게임 클래스 - 모바일 문제 완전 해결 버전
 class TetrisGame {
     constructor() {
         // 게임 보드 설정 - 정확한 1:2 비율
@@ -24,6 +24,10 @@ class TetrisGame {
         this.gameOver = false;
         this.canContinue = false;
         this.playerName = '';
+        
+        // 초기화 상태 추적
+        this.isInitialized = false;
+        this.isStarting = false;
         
         // 전체화면 상태
         this.isFullscreen = false;
@@ -111,7 +115,20 @@ class TetrisGame {
         
         this.pieceTypes = Object.keys(this.pieces);
         
-        this.init();
+        // 초기화를 지연시켜 DOM이 완전히 로드된 후 실행
+        this.delayedInit();
+    }
+    
+    // 지연된 초기화
+    delayedInit() {
+        // DOM이 완전히 로드될 때까지 기다림
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(() => this.init(), 100);
+            });
+        } else {
+            setTimeout(() => this.init(), 100);
+        }
     }
     
     // 인앱 브라우저 감지
@@ -132,7 +149,8 @@ class TetrisGame {
         const userAgent = navigator.userAgent.toLowerCase();
         const mobileKeywords = [
             'android', 'webos', 'iphone', 'ipad', 'ipod', 
-            'blackberry', 'iemobile', 'opera mini', 'mobile'
+            'blackberry', 'iemobile', 'opera mini', 'mobile',
+            'samsung', 'nokia', 'motorola', 'lg ', 'huawei'
         ];
         
         const isMobileUserAgent = mobileKeywords.some(keyword => userAgent.includes(keyword));
@@ -140,11 +158,32 @@ class TetrisGame {
         // 터치 지원 여부도 확인
         const hasTouchScreen = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         
-        // 화면 크기는 보조 수단으로만 사용 (데스크탑에서 창 크기가 작을 수 있음)
-        const isSmallScreen = window.innerWidth <= 768;
+        // 화면 크기 확인 (모바일에서는 보통 768px 이하)
+        const isSmallScreen = window.innerWidth <= 768 && window.innerHeight <= 1024;
         
-        // User Agent가 모바일이거나, 터치와 작은 화면을 모두 가진 경우
-        return isMobileUserAgent || (hasTouchScreen && isSmallScreen);
+        // 모바일 브라우저의 특성 확인
+        const isMobileBrowser = /Mobi|Android/i.test(navigator.userAgent);
+        
+        // CSS 미디어 쿼리로도 확인
+        const mediaQuery = window.matchMedia('(hover: none) and (pointer: coarse)');
+        const isTouchDevice = mediaQuery.matches;
+        
+        // 여러 조건을 종합적으로 판단
+        const result = isMobileUserAgent || isMobileBrowser || 
+                      (hasTouchScreen && isSmallScreen) || isTouchDevice;
+        
+        console.log('모바일 감지 결과:', {
+            userAgent: userAgent,
+            isMobileUserAgent,
+            hasTouchScreen,
+            isSmallScreen,
+            isMobileBrowser,
+            isTouchDevice,
+            screenSize: { width: window.innerWidth, height: window.innerHeight },
+            finalResult: result
+        });
+        
+        return result;
     }
     
     // 스크롤 제어 (게임 영역만 터치 제어)
@@ -191,10 +230,81 @@ class TetrisGame {
     }
     
     init() {
-        this.initCanvas();
-        this.initBoard();
-        this.bindEvents();
-        this.showStartScreen();
+        console.log("게임 초기화 시작", { 
+            isMobile: this.isMobile,
+            screenSize: { width: window.innerWidth, height: window.innerHeight },
+            userAgent: navigator.userAgent
+        });
+        
+        try {
+            // DOM 요소 확인
+            if (!this.verifyDOMElements()) {
+                console.error("DOM 요소 검증 실패");
+                setTimeout(() => this.init(), 500); // 0.5초 후 재시도
+                return;
+            }
+            
+            // 모바일 팝업 요소 추가 검증
+            this.verifyMobilePopupElements();
+            
+            this.initCanvas();
+            this.initBoard();
+            this.bindEvents();
+            this.showStartScreen();
+            this.isInitialized = true;
+            
+            console.log("게임 초기화 완료");
+        } catch (error) {
+            console.error("게임 초기화 실패:", error);
+            setTimeout(() => this.init(), 500); // 0.5초 후 재시도
+        }
+    }
+    
+    // 모바일 팝업 요소 검증
+    verifyMobilePopupElements() {
+        const mobileElements = [
+            'mobileGameOverPopup',
+            'mobileFinalScore', 
+            'mobileFinalLevel',
+            'mobileWatchAdBtn',
+            'mobileNewGameBtn', 
+            'mobileBackToMenuBtn'
+        ];
+        
+        for (const elementId of mobileElements) {
+            const element = document.getElementById(elementId);
+            if (!element) {
+                console.warn(`모바일 팝업 요소를 찾을 수 없음: ${elementId}`);
+            } else {
+                console.log(`모바일 팝업 요소 확인: ${elementId}`);
+            }
+        }
+        
+        // 팝업 오버레이 확인
+        const overlay = document.querySelector('.popup-overlay');
+        if (!overlay) {
+            console.warn('팝업 오버레이를 찾을 수 없음');
+        } else {
+            console.log('팝업 오버레이 확인 완료');
+        }
+    }
+    
+    // DOM 요소 검증
+    verifyDOMElements() {
+        const requiredElements = [
+            'gameCanvas', 'nextCanvas', 'startBtn', 'nicknameInput',
+            'startScreen', 'gameScreen', 'score', 'level', 'lines'
+        ];
+        
+        for (const elementId of requiredElements) {
+            const element = document.getElementById(elementId);
+            if (!element) {
+                console.error(`필수 DOM 요소를 찾을 수 없음: ${elementId}`);
+                return false;
+            }
+        }
+        
+        return true;
     }
     
     initCanvas() {
@@ -202,6 +312,10 @@ class TetrisGame {
         this.ctx = this.canvas.getContext('2d');
         this.nextCanvas = document.getElementById('nextCanvas');
         this.nextCtx = this.nextCanvas.getContext('2d');
+    
+        if (!this.canvas || !this.ctx || !this.nextCanvas || !this.nextCtx) {
+            throw new Error("캔버스 초기화 실패");
+        }
     
         const devicePixelRatio = window.devicePixelRatio || 1;
     
@@ -227,6 +341,11 @@ class TetrisGame {
         this.nextCanvas.width = nextCanvasSize * devicePixelRatio;
         this.nextCanvas.height = nextCanvasSize * devicePixelRatio;
         this.nextCtx.scale(devicePixelRatio, devicePixelRatio);
+        
+        console.log("캔버스 초기화 완료", {
+            canvasSize: { width: canvasWidth, height: canvasHeight },
+            devicePixelRatio
+        });
     }
     
     initBoard() {
@@ -241,39 +360,75 @@ class TetrisGame {
         
         // 초기화 검증
         if (this.board.length !== this.BOARD_HEIGHT) {
-            console.error("보드 높이 초기화 실패:", this.board.length, "!=", this.BOARD_HEIGHT);
+            throw new Error(`보드 높이 초기화 실패: ${this.board.length} != ${this.BOARD_HEIGHT}`);
         }
         
         if (this.board[0] && this.board[0].length !== this.BOARD_WIDTH) {
-            console.error("보드 너비 초기화 실패:", this.board[0].length, "!=", this.BOARD_WIDTH);
+            throw new Error(`보드 너비 초기화 실패: ${this.board[0].length} != ${this.BOARD_WIDTH}`);
         }
         
-        console.log("보드 초기화 완료:", this.board.length, "x", this.board[0] ? this.board[0].length : 'undefined');
+        console.log("보드 초기화 완료:", this.board.length, "x", this.board[0].length);
     }
     
     bindEvents() {
         // 화면 전환 버튼들
         document.getElementById('startBtn').addEventListener('click', () => this.startGame());
-        document.getElementById('pauseBtn').addEventListener('click', () => this.togglePause());
-        document.getElementById('resumeBtn').addEventListener('click', () => this.togglePause());
-        document.getElementById('quitBtn').addEventListener('click', () => this.quitGame());
-        document.getElementById('newGameBtn').addEventListener('click', () => this.startNewGame());
-        document.getElementById('backToMenuBtn').addEventListener('click', () => this.showStartScreen());
-        document.getElementById('watchAdBtn').addEventListener('click', () => this.showAd());
-        document.getElementById('continueAfterAdBtn').addEventListener('click', () => this.continueAfterAd());
+        document.getElementById('pauseBtn')?.addEventListener('click', () => this.togglePause());
+        document.getElementById('resumeBtn')?.addEventListener('click', () => this.togglePause());
+        document.getElementById('quitBtn')?.addEventListener('click', () => this.quitGame());
+        document.getElementById('newGameBtn')?.addEventListener('click', () => this.startNewGame());
+        document.getElementById('backToMenuBtn')?.addEventListener('click', () => this.showStartScreen());
+        document.getElementById('watchAdBtn')?.addEventListener('click', () => this.showAd());
+        document.getElementById('continueAfterAdBtn')?.addEventListener('click', () => this.continueAfterAd());
         
-        // 모바일 게임 오버 팝업 이벤트
-        document.getElementById('mobileWatchAdBtn').addEventListener('click', () => this.showMobileAd());
-        document.getElementById('mobileNewGameBtn').addEventListener('click', () => this.startNewGame());
-        document.getElementById('mobileBackToMenuBtn').addEventListener('click', () => this.showStartScreen());
-        document.getElementById('mobileContinueAfterAdBtn').addEventListener('click', () => this.continueAfterMobileAd());
+        // 모바일 게임 오버 팝업 이벤트 (안전한 바인딩)
+        const mobileWatchAdBtn = document.getElementById('mobileWatchAdBtn');
+        const mobileNewGameBtn = document.getElementById('mobileNewGameBtn');
+        const mobileBackToMenuBtn = document.getElementById('mobileBackToMenuBtn');
+        const mobileContinueAfterAdBtn = document.getElementById('mobileContinueAfterAdBtn');
+        
+        if (mobileWatchAdBtn) {
+            mobileWatchAdBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('모바일 광고 시청 버튼 클릭');
+                this.showMobileAd();
+            });
+        }
+        
+        if (mobileNewGameBtn) {
+            mobileNewGameBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('모바일 새 게임 버튼 클릭');
+                this.startNewGame();
+            });
+        }
+        
+        if (mobileBackToMenuBtn) {
+            mobileBackToMenuBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('모바일 메인 메뉴 버튼 클릭');
+                this.showStartScreen();
+            });
+        }
+        
+        if (mobileContinueAfterAdBtn) {
+            mobileContinueAfterAdBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('모바일 광고 후 계속하기 버튼 클릭');
+                this.continueAfterMobileAd();
+            });
+        }
         
         // 전체화면 버튼
-        document.getElementById('fullscreenBtn').addEventListener('click', () => this.toggleFullscreen());
+        document.getElementById('fullscreenBtn')?.addEventListener('click', () => this.toggleFullscreen());
         
         // 모바일 컨트롤 버튼들
-        document.getElementById('rotateBtn').addEventListener('click', () => this.rotatePiece());
-        document.getElementById('dropBtn').addEventListener('click', () => this.hardDrop());
+        document.getElementById('rotateBtn')?.addEventListener('click', () => this.rotatePiece());
+        document.getElementById('dropBtn')?.addEventListener('click', () => this.hardDrop());
         
         // 키보드 컨트롤
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -305,16 +460,37 @@ class TetrisGame {
     
     // 화면 전환 메소드들
     showStartScreen() {
+        console.log('시작 화면 표시 요청');
+        
         this.hideAllScreens();
         this.hideMobileGameOverPopup(); // 모바일 팝업도 숨기기
-        document.getElementById('startScreen').classList.remove('hidden');
+        
+        // PC용 게임 오버 화면도 확실히 숨기기
+        const pcGameOverScreen = document.getElementById('gameOverScreen');
+        if (pcGameOverScreen) {
+            pcGameOverScreen.classList.add('hidden');
+            pcGameOverScreen.style.display = 'none';
+        }
+        
+        const startScreen = document.getElementById('startScreen');
+        if (startScreen) {
+            startScreen.classList.remove('hidden');
+            startScreen.style.display = 'flex';
+        }
+        
         this.gameRunning = false;
         this.gamePaused = false;
+        this.isStarting = false;
+        
         // 메인 메뉴에서는 자유로운 스크롤 허용
         this.enableScroll();
+        
         // modal-active 클래스 제거
         document.body.classList.remove('modal-active');
+        
         if (soundManager) soundManager.stopBgm();
+        
+        console.log('시작 화면 표시 완료');
     }
     
     showGameScreen() {
@@ -325,10 +501,21 @@ class TetrisGame {
     }
     
     showGameOverScreen() {
+        // 모바일 상태를 다시 확인 (동적 변경 대응)
+        const isMobileNow = this.detectMobile();
+        
+        console.log('게임 오버 화면 표시:', {
+            originalMobile: this.isMobile,
+            currentMobile: isMobileNow,
+            screenSize: { width: window.innerWidth, height: window.innerHeight }
+        });
+        
         // 모바일에서는 팝업으로 표시, PC에서는 일반 화면으로 표시
-        if (this.isMobile) {
+        if (isMobileNow) {
+            console.log('모바일 게임 오버 팝업 표시');
             this.showMobileGameOverPopup();
         } else {
+            console.log('PC 게임 오버 화면 표시');
             // PC에서는 기존 방식 사용
             this.hideAllScreens();
             document.getElementById('gameOverScreen').classList.remove('hidden');
@@ -348,26 +535,82 @@ class TetrisGame {
     
     // 모바일 게임 오버 팝업 표시
     showMobileGameOverPopup() {
-        document.getElementById('mobileGameOverPopup').classList.remove('hidden');
-        document.getElementById('mobileFinalScore').textContent = this.score.toLocaleString();
-        document.getElementById('mobileFinalLevel').textContent = this.level;
+        console.log('모바일 팝업 표시 시작');
         
-        // 팝업 오버레이 클릭 시 닫기
+        // PC용 게임 오버 화면 강제로 숨기기
+        const pcGameOverScreen = document.getElementById('gameOverScreen');
+        if (pcGameOverScreen) {
+            pcGameOverScreen.classList.add('hidden');
+            pcGameOverScreen.style.display = 'none';
+        }
+        
+        // 모든 다른 화면들도 숨기기
+        this.hideAllScreens();
+        
+        // 모바일 팝업 표시
+        const mobilePopup = document.getElementById('mobileGameOverPopup');
+        if (mobilePopup) {
+            mobilePopup.classList.remove('hidden');
+            mobilePopup.style.display = 'flex';
+            
+            // 점수 정보 업데이트
+            const scoreElement = document.getElementById('mobileFinalScore');
+            const levelElement = document.getElementById('mobileFinalLevel');
+            
+            if (scoreElement) scoreElement.textContent = this.score.toLocaleString();
+            if (levelElement) levelElement.textContent = this.level;
+            
+            console.log('모바일 팝업 표시 완료:', {
+                score: this.score,
+                level: this.level,
+                popupVisible: !mobilePopup.classList.contains('hidden')
+            });
+        } else {
+            console.error('모바일 게임 오버 팝업 요소를 찾을 수 없음');
+        }
+        
+        // 팝업 오버레이 클릭 시 닫기 (중복 이벤트 방지)
         const overlay = document.querySelector('.popup-overlay');
         if (overlay) {
-            overlay.addEventListener('click', () => {
+            // 기존 이벤트 리스너 제거
+            overlay.removeEventListener('click', this.overlayClickHandler);
+            
+            // 새 이벤트 리스너 추가
+            this.overlayClickHandler = () => {
                 this.hideMobileGameOverPopup();
                 this.showStartScreen();
-            });
+            };
+            overlay.addEventListener('click', this.overlayClickHandler);
         }
     }
     
     // 모바일 게임 오버 팝업 숨기기
     hideMobileGameOverPopup() {
-        document.getElementById('mobileGameOverPopup').classList.add('hidden');
-        document.getElementById('mobileAdSection').classList.add('hidden');
+        console.log('모바일 팝업 숨김 시작');
+        
+        const popup = document.getElementById('mobileGameOverPopup');
+        const adSection = document.getElementById('mobileAdSection');
+        
+        if (popup) {
+            popup.classList.add('hidden');
+            popup.style.display = 'none';
+            console.log('모바일 팝업 숨김 완료');
+        } else {
+            console.error('모바일 팝업 요소를 찾을 수 없음');
+        }
+        
+        if (adSection) {
+            adSection.classList.add('hidden');
+        }
+        
         // 팝업 숨길 때 modal-active 클래스도 제거
         document.body.classList.remove('modal-active');
+        
+        // 오버레이 이벤트 리스너 정리
+        const overlay = document.querySelector('.popup-overlay');
+        if (overlay && this.overlayClickHandler) {
+            overlay.removeEventListener('click', this.overlayClickHandler);
+        }
     }
     
     showPauseScreen() {
@@ -387,6 +630,8 @@ class TetrisGame {
     
     // 게임 상태 초기화
     resetGame() {
+        console.log("게임 상태 리셋 시작");
+        
         this.score = 0;
         this.level = 1;
         this.lines = 0;
@@ -402,74 +647,143 @@ class TetrisGame {
         // 보드 초기화를 더 안전하게
         this.initBoard();
         
-        // 모바일에서 추가 초기화 확인
-        if (this.isMobile) {
-            // 캔버스 다시 초기화
-            setTimeout(() => {
-                this.initCanvas();
-            }, 10);
-        }
-        
-        console.log("게임 상태 초기화 완료", {
+        console.log("게임 상태 리셋 완료", {
             isMobile: this.isMobile,
             boardHeight: this.board ? this.board.length : 'undefined',
             canvasSize: this.canvas ? { width: this.canvas.width, height: this.canvas.height } : 'undefined'
         });
     }
 
-    // 게임 시작 - 개선된 버전
+    // 게임 시작 - 최종 개선 버전
     startGame() {
+        // 이미 시작 중이면 중복 실행 방지
+        if (this.isStarting) {
+            console.log("게임이 이미 시작 중입니다.");
+            return;
+        }
+        
+        // 초기화가 완료되지 않았으면 대기
+        if (!this.isInitialized) {
+            console.log("초기화가 완료되지 않아 대기 중...");
+            setTimeout(() => this.startGame(), 200);
+            return;
+        }
+        
+        this.isStarting = true;
+        
         const nicknameInput = document.getElementById('nicknameInput');
         this.playerName = nicknameInput.value.trim() || 'Anonymous';
         
         if (this.playerName.length > 10) {
             alert('닉네임은 10자 이하로 입력해주세요.');
+            this.isStarting = false;
             return;
         }
+        
+        console.log("게임 시작 요청", { playerName: this.playerName, isMobile: this.isMobile });
         
         document.getElementById('playerName').textContent = this.playerName;
         
         // 게임 상태를 완전히 초기화합니다.
         this.resetGame();
         
-        // 모바일 브라우저의 렌더링 시간을 확보하기 위해 더 긴 지연을 줍니다.
+        // 모바일에서 더 긴 지연과 단계별 검증
+        const delay = this.isMobile ? 300 : 100;
+        
         setTimeout(() => {
+            this.startGameStep1();
+        }, delay);
+    }
+    
+    // 게임 시작 1단계: 기본 검증
+    startGameStep1() {
+        console.log("게임 시작 1단계: 기본 검증");
+        
+        try {
             // 캔버스가 완전히 초기화되었는지 확인
             if (!this.canvas || !this.ctx) {
-                console.error("캔버스 초기화 실패");
-                this.showStartScreen();
-                return;
+                throw new Error("캔버스가 초기화되지 않음");
             }
             
             // 보드가 올바르게 초기화되었는지 확인
             if (!this.board || this.board.length !== this.BOARD_HEIGHT) {
-                console.error("보드 초기화 실패");
-                this.initBoard(); // 보드 재초기화
+                throw new Error("보드가 올바르게 초기화되지 않음");
             }
             
+            // 2단계로 진행
+            setTimeout(() => this.startGameStep2(), 50);
+            
+        } catch (error) {
+            console.error("게임 시작 1단계 실패:", error);
+            this.isStarting = false;
+            
+            if (this.isMobile && confirm("게임 시작에 실패했습니다. 다시 시도하시겠습니까?")) {
+                this.startGame();
+            } else {
+                this.showStartScreen();
+            }
+        }
+    }
+    
+    // 게임 시작 2단계: 블록 생성
+    startGameStep2() {
+        console.log("게임 시작 2단계: 블록 생성");
+        
+        try {
             // 다음 블록 생성
             this.generateNextPiece();
             
-            // 현재 블록 생성 - 안전한 위치에서 시작
-            this.spawnNewPieceSafe();
-            
-            // 게임 오버 상태가 아닌지 다시 한 번 확인
-            if (this.gameOver) {
-                console.error("게임 시작 실패 - 보드 상태:", JSON.stringify(this.board));
-                console.error("현재 블록:", this.currentPiece);
-                
-                // 모바일에서 재시도 기회 제공
-                if (this.isMobile) {
-                    if (confirm("게임 시작에 실패했습니다. 다시 시도하시겠습니까?")) {
-                        this.startGame();
-                        return;
-                    }
-                }
-                
-                this.showStartScreen();
-                return;
+            if (!this.nextPiece) {
+                throw new Error("다음 블록 생성 실패");
             }
             
+            // 3단계로 진행
+            setTimeout(() => this.startGameStep3(), 50);
+            
+        } catch (error) {
+            console.error("게임 시작 2단계 실패:", error);
+            this.isStarting = false;
+            this.showStartScreen();
+        }
+    }
+    
+    // 게임 시작 3단계: 현재 블록 생성 및 최종 검증
+    startGameStep3() {
+        console.log("게임 시작 3단계: 현재 블록 생성");
+        
+        try {
+            // 현재 블록을 안전하게 생성
+            this.createFirstPieceSafely();
+            
+            // 게임 오버 상태가 아닌지 확인
+            if (this.gameOver) {
+                throw new Error("블록 생성 시 게임 오버 발생");
+            }
+            
+            if (!this.currentPiece) {
+                throw new Error("현재 블록이 생성되지 않음");
+            }
+            
+            // 4단계로 진행
+            setTimeout(() => this.startGameStep4(), 50);
+            
+        } catch (error) {
+            console.error("게임 시작 3단계 실패:", error);
+            this.isStarting = false;
+            
+            if (this.isMobile && confirm("블록 생성에 실패했습니다. 다시 시도하시겠습니까?")) {
+                this.startGame();
+            } else {
+                this.showStartScreen();
+            }
+        }
+    }
+    
+    // 게임 시작 4단계: 게임 실행
+    startGameStep4() {
+        console.log("게임 시작 4단계: 게임 실행");
+        
+        try {
             this.updateDisplay();
             this.showGameScreen();
             
@@ -482,35 +796,140 @@ class TetrisGame {
             
             if (soundManager) soundManager.playBgm(this.level);
             
-            console.log("게임 시작 성공", {
+            this.isStarting = false;
+            
+            console.log("게임 시작 성공!", {
                 isMobile: this.isMobile,
                 boardSize: this.board.length,
                 currentPiece: this.currentPiece ? this.currentPiece.type : 'none'
             });
-        }, this.isMobile ? 200 : 50); // 모바일에서 더 긴 지연
+            
+        } catch (error) {
+            console.error("게임 시작 4단계 실패:", error);
+            this.isStarting = false;
+            this.showStartScreen();
+        }
+    }
+    
+    // 첫 번째 블록을 안전하게 생성
+    createFirstPieceSafely() {
+        if (!this.nextPiece) {
+            throw new Error("다음 블록이 없음");
+        }
+        
+        // 블록 시작 위치를 보드 중앙으로 계산
+        const startX = Math.floor(this.BOARD_WIDTH / 2) - Math.floor(this.nextPiece.shape[0].length / 2);
+        const startY = 0;
+        
+        // 시작 위치가 보드 범위를 벗어나지 않는지 확인
+        if (startX < 0 || startX + this.nextPiece.shape[0].length > this.BOARD_WIDTH) {
+            throw new Error(`블록 시작 위치가 보드를 벗어남: startX=${startX}, pieceWidth=${this.nextPiece.shape[0].length}`);
+        }
+        
+        // 보드 최상단이 완전히 비어있는지 확인
+        for (let col = 0; col < this.BOARD_WIDTH; col++) {
+            if (this.board[0][col] !== 0) {
+                throw new Error(`보드 최상단이 비어있지 않음: col=${col}, value=${this.board[0][col]}`);
+            }
+        }
+        
+        // 현재 블록 생성
+        this.currentPiece = {
+            type: this.nextPiece.type,
+            shape: JSON.parse(JSON.stringify(this.nextPiece.shape)), // 깊은 복사
+            color: this.nextPiece.color,
+            x: startX,
+            y: startY
+        };
+        
+        // 블록이 시작 위치에서 충돌하지 않는지 최종 확인
+        // 게임 시작 시에는 매우 관대한 검사만 실행
+        let hasImmediateCollision = false;
+        for (let row = 0; row < this.currentPiece.shape.length && row < 2; row++) {
+            for (let col = 0; col < this.currentPiece.shape[row].length; col++) {
+                if (this.currentPiece.shape[row][col]) {
+                    const boardX = this.currentPiece.x + col;
+                    const boardY = this.currentPiece.y + row;
+                    
+                    if (boardY >= 0 && boardY < this.BOARD_HEIGHT && 
+                        boardX >= 0 && boardX < this.BOARD_WIDTH) {
+                        if (this.board[boardY][boardX] !== 0) {
+                            hasImmediateCollision = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (hasImmediateCollision) break;
+        }
+        
+        if (hasImmediateCollision) {
+            throw new Error("블록 시작 위치에서 충돌 감지");
+        }
+        
+        // 다음 블록 생성
+        this.generateNextPiece();
+        this.drawNextPiece();
+        
+        console.log("첫 번째 블록 생성 성공:", {
+            type: this.currentPiece.type,
+            position: { x: this.currentPiece.x, y: this.currentPiece.y }
+        });
     }
     
     // 새 게임 시작 (게임 오버 후)
     startNewGame() {
+        console.log('새 게임 시작 요청');
+        
         this.canContinue = false;
+        
         // 모바일 팝업 숨기기
         this.hideMobileGameOverPopup();
+        
+        // PC용 게임 오버 화면도 숨기기
+        const pcGameOverScreen = document.getElementById('gameOverScreen');
+        if (pcGameOverScreen) {
+            pcGameOverScreen.classList.add('hidden');
+            pcGameOverScreen.style.display = 'none';
+        }
+        
         // modal-active 클래스 제거
         document.body.classList.remove('modal-active');
-        this.startGame();
+        
+        // 약간의 지연 후 게임 시작
+        setTimeout(() => {
+            this.startGame();
+        }, 100);
+        
+        console.log('새 게임 시작 처리 완료');
     }
     
     // 게임 종료
     quitGame() {
+        console.log('게임 종료 요청');
+        
         this.gameRunning = false;
         this.gamePaused = false;
+        this.isStarting = false;
+        
         // 게임 영역 터치 제어 비활성화
         this.enableScroll();
+        
         // 모바일 팝업이 열려있으면 닫기
         this.hideMobileGameOverPopup();
+        
         // modal-active 클래스 제거
         document.body.classList.remove('modal-active');
+        
+        // PC용 게임 오버 화면도 숨김
+        const pcGameOverScreen = document.getElementById('gameOverScreen');
+        if (pcGameOverScreen) {
+            pcGameOverScreen.classList.add('hidden');
+        }
+        
         this.showStartScreen();
+        
+        console.log('게임 종료 완료');
     }
     
     // 새로운 피스 생성
@@ -520,78 +939,11 @@ class TetrisGame {
         
         this.nextPiece = {
             type: pieceType,
-            shape: this.pieces[pieceType].shape,
+            shape: JSON.parse(JSON.stringify(this.pieces[pieceType].shape)), // 깊은 복사
             color: this.pieces[pieceType].color,
             x: 0,
             y: 0
         };
-    }
-    
-    // 안전한 블록 생성 (게임 시작용)
-    spawnNewPieceSafe() {
-        if (!this.nextPiece) {
-            this.generateNextPiece();
-        }
-        
-        // 블록 시작 위치 계산
-        const startX = Math.floor(this.BOARD_WIDTH / 2) - Math.floor(this.nextPiece.shape[0].length / 2);
-        const startY = 0;
-        
-        // 안전한 위치 확인
-        if (startX < 0 || startX + this.nextPiece.shape[0].length > this.BOARD_WIDTH) {
-            console.error("블록 시작 위치가 보드를 벗어남:", { startX, pieceWidth: this.nextPiece.shape[0].length, boardWidth: this.BOARD_WIDTH });
-            this.gameOver = true;
-            return;
-        }
-        
-        this.currentPiece = {
-            ...this.nextPiece,
-            x: startX,
-            y: startY
-        };
-        
-        // 보드가 완전히 비어있는지 확인 (게임 시작 시)
-        const topRowEmpty = this.board[0] && this.board[0].every(cell => cell === 0);
-        if (!topRowEmpty) {
-            console.error("게임 시작 시 최상단 행이 비어있지 않음:", this.board[0]);
-            this.gameOver = true;
-            return;
-        }
-        
-        // 첫 번째 행에서만 충돌 검사 (더 관대한 검사)
-        let hasCollision = false;
-        for (let row = 0; row < Math.min(2, this.currentPiece.shape.length); row++) {
-            for (let col = 0; col < this.currentPiece.shape[row].length; col++) {
-                if (this.currentPiece.shape[row][col]) {
-                    const boardX = this.currentPiece.x + col;
-                    const boardY = this.currentPiece.y + row;
-                    
-                    if (boardY >= 0 && boardY < this.BOARD_HEIGHT && 
-                        boardX >= 0 && boardX < this.BOARD_WIDTH) {
-                        if (this.board[boardY][boardX] !== 0) {
-                            hasCollision = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            if (hasCollision) break;
-        }
-        
-        if (hasCollision) {
-            console.error("게임 시작 시 블록 충돌 감지");
-            this.gameOver = true;
-            return;
-        }
-        
-        this.generateNextPiece();
-        this.drawNextPiece();
-        
-        console.log("블록 생성 성공:", {
-            type: this.currentPiece.type,
-            position: { x: this.currentPiece.x, y: this.currentPiece.y },
-            boardTopRow: this.board[0].slice(0, 5) // 처음 5개 셀만 로그
-        });
     }
     
     spawnNewPiece() {
@@ -600,7 +952,9 @@ class TetrisGame {
         }
         
         this.currentPiece = {
-            ...this.nextPiece,
+            type: this.nextPiece.type,
+            shape: JSON.parse(JSON.stringify(this.nextPiece.shape)), // 깊은 복사
+            color: this.nextPiece.color,
             x: Math.floor(this.BOARD_WIDTH / 2) - Math.floor(this.nextPiece.shape[0].length / 2),
             y: 0
         };
@@ -1306,8 +1660,11 @@ class TetrisGame {
         document.body.classList.add('fullscreen-mode');
         this.isFullscreen = true;
         
-        document.getElementById('fullscreenBtn').innerHTML = '⤋';
-        document.getElementById('fullscreenBtn').title = '전체화면 해제';
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        if (fullscreenBtn) {
+            fullscreenBtn.innerHTML = '⤋';
+            fullscreenBtn.title = '전체화면 해제';
+        }
         
         setTimeout(() => {
             this.resizeCanvasForFullscreen();
@@ -1327,8 +1684,11 @@ class TetrisGame {
         document.body.classList.remove('modal-active');
         this.isFullscreen = false;
         
-        document.getElementById('fullscreenBtn').innerHTML = '⛶';
-        document.getElementById('fullscreenBtn').title = '전체화면';
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        if (fullscreenBtn) {
+            fullscreenBtn.innerHTML = '⛶';
+            fullscreenBtn.title = '전체화면';
+        }
         
         setTimeout(() => {
             this.initCanvas();
@@ -1384,8 +1744,11 @@ class TetrisGame {
             this.isFullscreen = false;
             document.body.classList.remove('fullscreen-mode');
             document.body.classList.remove('modal-active');
-            document.getElementById('fullscreenBtn').innerHTML = '⛶';
-            document.getElementById('fullscreenBtn').title = '전체화면';
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            if (fullscreenBtn) {
+                fullscreenBtn.innerHTML = '⛶';
+                fullscreenBtn.title = '전체화면';
+            }
             
             setTimeout(() => {
                 this.initCanvas();
@@ -1395,14 +1758,17 @@ class TetrisGame {
     
     // 광고 관련 메서드들 (기본 버전만 포함)
     showAd() {
-        document.getElementById('adSection').classList.remove('hidden');
-        
-        setTimeout(() => {
-            const continueBtn = document.getElementById('continueAfterAdBtn');
-            if (continueBtn) {
-                continueBtn.classList.remove('hidden');
-            }
-        }, 3000);
+        const adSection = document.getElementById('adSection');
+        if (adSection) {
+            adSection.classList.remove('hidden');
+            
+            setTimeout(() => {
+                const continueBtn = document.getElementById('continueAfterAdBtn');
+                if (continueBtn) {
+                    continueBtn.classList.remove('hidden');
+                }
+            }, 3000);
+        }
     }
     
     continueAfterAd() {
@@ -1426,18 +1792,22 @@ class TetrisGame {
         
         if (soundManager) soundManager.playBgm(this.level);
         
-        document.getElementById('adSection').classList.add('hidden');
+        const adSection = document.getElementById('adSection');
+        if (adSection) adSection.classList.add('hidden');
     }
     
     showMobileAd() {
-        document.getElementById('mobileAdSection').classList.remove('hidden');
-        
-        setTimeout(() => {
-            const continueBtn = document.getElementById('mobileContinueAfterAdBtn');
-            if (continueBtn) {
-                continueBtn.classList.remove('hidden');
-            }
-        }, 3000);
+        const adSection = document.getElementById('mobileAdSection');
+        if (adSection) {
+            adSection.classList.remove('hidden');
+            
+            setTimeout(() => {
+                const continueBtn = document.getElementById('mobileContinueAfterAdBtn');
+                if (continueBtn) {
+                    continueBtn.classList.remove('hidden');
+                }
+            }, 3000);
+        }
     }
     
     continueAfterMobileAd() {
@@ -1469,5 +1839,6 @@ let tetrisGame;
 
 // DOM 로드 완료 시 게임 초기화
 document.addEventListener('DOMContentLoaded', () => {
+    console.log("DOM 로드 완료 - 테트리스 게임 생성 시작");
     tetrisGame = new TetrisGame();
 });
