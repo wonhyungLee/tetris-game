@@ -1,0 +1,37 @@
+[
+  {
+    "nickname": "Player1",
+    "score": 50000,
+    "level": 5,
+    "lines": 25,
+    "date": "2025-07-06T04:06:33.785Z"
+  },
+  {
+    "nickname": "Player2",
+    "score": 40000,
+    "level": 4,
+    "lines": 20,
+    "date": "2025-07-06T04:06:33.785Z"
+  },
+  {
+    "nickname": "Player3",
+    "score": 30000,
+    "level": 3,
+    "lines": 15,
+    "date": "2025-07-06T04:06:33.785Z"
+  },
+  {
+    "nickname": "Player4",
+    "score": 20000,
+    "level": 2,
+    "lines": 10,
+    "date": "2025-07-06T04:06:33.785Z"
+  },
+  {
+    "nickname": "Player5",
+    "score": 10000,
+    "level": 1,
+    "lines": 5,
+    "date": "2025-07-06T04:06:33.785Z"
+  }
+]

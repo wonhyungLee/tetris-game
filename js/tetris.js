@@ -187,10 +187,23 @@ class TetrisGame {
     }
     
     init() {
-        this.initCanvas();
-        this.initBoard();
-        this.bindEvents();
-        this.showStartScreen();
+        // 모바일에서는 초기화 순서를 약간 다르게
+        if (this.isMobile) {
+            // 먼저 DOM 이벤트 바인딩
+            this.bindEvents();
+            // 화면 표시
+            this.showStartScreen();
+            // 나중에 캔버스와 보드 초기화
+            setTimeout(() => {
+                this.initCanvas();
+                this.initBoard();
+            }, 50);
+        } else {
+            this.initCanvas();
+            this.initBoard();
+            this.bindEvents();
+            this.showStartScreen();
+        }
     }
     
     initCanvas() {
@@ -198,35 +211,66 @@ class TetrisGame {
         this.ctx = this.canvas.getContext('2d');
         this.nextCanvas = document.getElementById('nextCanvas');
         this.nextCtx = this.nextCanvas.getContext('2d');
-    
+        
+        // 캔버스가 존재하는지 확인
+        if (!this.canvas || !this.ctx) {
+            console.error('Canvas not found or context not available');
+            return;
+        }
+        
+        // 고해상도 디스플레이 대응
         const devicePixelRatio = window.devicePixelRatio || 1;
-    
-        // 게임 보드의 논리적 크기(10x20)와 블록 크기(30px)를 기반으로 캔버스 크기를 명확하게 설정합니다.
-        const canvasWidth = this.BOARD_WIDTH * this.BLOCK_SIZE; // 10 * 30 = 300
-        const canvasHeight = this.BOARD_HEIGHT * this.BLOCK_SIZE; // 20 * 30 = 600
-    
-        // 1. 캔버스의 CSS 크기를 설정합니다.
-        this.canvas.style.width = canvasWidth + 'px';
-        this.canvas.style.height = canvasHeight + 'px';
-    
-        // 2. 고해상도 디스플레이(레티나 등)에 대응하기 위해 캔버스의 실제 버퍼 크기를 설정합니다.
+        
+        // 정확한 1:2 비율 유지 (10칸 × 20칸)
+        let canvasWidth = this.BOARD_WIDTH * this.BLOCK_SIZE;  // 280px
+        let canvasHeight = this.BOARD_HEIGHT * this.BLOCK_SIZE; // 560px
+        
+        // CSS에서 설정된 크기와 맞추기 위해 300x600으로 조정
+        canvasWidth = 300;
+        canvasHeight = 600;
+        
+        // 모바일에서 화면 크기에 맞게 조정
+        if (this.isMobile) {
+            const maxWidth = Math.min(window.innerWidth - 40, 300);
+            const maxHeight = Math.min(window.innerHeight - 280, 600);
+            const scale = Math.min(maxWidth / 300, maxHeight / 600);
+            canvasWidth = 300 * scale;
+            canvasHeight = 600 * scale;
+        }
+        
+        // 블록 크기를 캔버스 크기에 맞게 재계산
+        this.BLOCK_SIZE = canvasWidth / this.BOARD_WIDTH; // 30px
+        
+        // 메인 캔버스 - 정확한 비율 설정
         this.canvas.width = canvasWidth * devicePixelRatio;
         this.canvas.height = canvasHeight * devicePixelRatio;
-    
-        // 3. 캔버스 컨텍스트의 스케일을 조정하여 선명하게 렌더링되도록 합니다.
+        this.canvas.style.width = canvasWidth + 'px';
+        this.canvas.style.height = canvasHeight + 'px';
         this.ctx.scale(devicePixelRatio, devicePixelRatio);
-    
-        // '다음 블록' 캔버스도 동일한 방식으로 설정합니다.
-        const nextCanvasSize = 60;
-        this.nextCanvas.style.width = nextCanvasSize + 'px';
-        this.nextCanvas.style.height = nextCanvasSize + 'px';
-        this.nextCanvas.width = nextCanvasSize * devicePixelRatio;
-        this.nextCanvas.height = nextCanvasSize * devicePixelRatio;
+        
+        // 다음 피스 캔버스
+        this.nextCanvas.width = 60 * devicePixelRatio;
+        this.nextCanvas.height = 60 * devicePixelRatio;
+        this.nextCanvas.style.width = '60px';
+        this.nextCanvas.style.height = '60px';
         this.nextCtx.scale(devicePixelRatio, devicePixelRatio);
+        
+        console.log('Canvas initialized:', {
+            width: canvasWidth,
+            height: canvasHeight,
+            blockSize: this.BLOCK_SIZE,
+            isMobile: this.isMobile
+        });
     }
     
     initBoard() {
         this.board = Array(this.BOARD_HEIGHT).fill().map(() => Array(this.BOARD_WIDTH).fill(0));
+        console.log('Board initialized:', {
+            width: this.BOARD_WIDTH,
+            height: this.BOARD_HEIGHT,
+            boardLength: this.board.length,
+            firstRowLength: this.board[0] ? this.board[0].length : 0
+        });
     }
     
     bindEvents() {
@@ -257,9 +301,11 @@ class TetrisGame {
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         
         // 터치 컨트롤
-        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), {passive: false});
-        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), {passive: false});
-        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), {passive: false});
+        if (this.canvas) {
+            this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), {passive: false});
+            this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), {passive: false});
+            this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), {passive: false});
+        }
         
         // 마우스 컨트롤 (데스크탑에서도 사용 가능)
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
@@ -358,20 +404,6 @@ class TetrisGame {
         this.hideMobileGameOverPopup();
     }
     
-    // 게임 상태 초기화
-    resetGame() {
-        this.score = 0;
-        this.level = 1;
-        this.lines = 0;
-        this.gameRunning = false;
-        this.gamePaused = false;
-        this.gameOver = false;
-        this.canContinue = false;
-        this.dropInterval = 1000;
-        this.lastTime = 0;
-        this.initBoard();
-    }
-
     // 게임 시작
     startGame() {
         const nicknameInput = document.getElementById('nicknameInput');
@@ -384,35 +416,64 @@ class TetrisGame {
         
         document.getElementById('playerName').textContent = this.playerName;
         
-        // 게임 상태를 완전히 초기화합니다.
-        this.resetGame();
+        // 게임 초기화
+        this.score = 0;
+        this.level = 1;
+        this.lines = 0;
+        this.gameOver = false;
+        this.canContinue = false;
+        this.dropInterval = 1000;
         
-        // 모바일 브라우저의 렌더링 시간을 확보하기 위해 짧은 지연을 줍니다.
-        setTimeout(() => {
+        // 캔버스 재초기화 (모바일에서 중요)
+        this.initCanvas();
+        this.initBoard();
+        
+        // 모바일에서는 약간의 지연을 주어 DOM이 완전히 준비되도록 함
+        if (this.isMobile) {
+            setTimeout(() => {
+                this.generateNextPiece();
+                this.spawnNewPiece();
+                
+                this.updateDisplay();
+                this.showGameScreen();
+                
+                // 게임 영역 터치 제어 활성화
+                this.disableScroll();
+                
+                // modal-active 클래스 제거 (게임 시작 시)
+                document.body.classList.remove('modal-active');
+                
+                this.gameRunning = true;
+                this.gamePaused = false;
+                
+                // 게임 루프 시작
+                this.lastTime = performance.now();
+                this.gameLoop();
+                
+                if (soundManager) soundManager.playBgm(this.level);
+            }, 100);
+        } else {
             this.generateNextPiece();
             this.spawnNewPiece();
-            
-            // 만약 새 블록 생성 직후 게임 오버가 ���다면, 이는 초기화 오류일 가능성이 높습니다.
-            // 이 경우, 게임을 시작하지 않고 문제를 기록합니다.
-            if (this.gameOver) {
-                console.error("게임 시작 직후 게임 오버 발생. 보드 상태:", JSON.stringify(this.board));
-                // 사용자에게 다시 시도해달라는 메시지를 보여줄 수도 있습니다.
-                this.showStartScreen(); // 시작 화면으로 돌려보내기
-                return;
-            }
             
             this.updateDisplay();
             this.showGameScreen();
             
+            // 게임 영역 터치 제어 활성화
             this.disableScroll();
+            
+            // modal-active 클래스 제거 (게임 시작 시)
             document.body.classList.remove('modal-active');
             
             this.gameRunning = true;
+            this.gamePaused = false;
+            
+            // 게임 루프 시작
             this.lastTime = performance.now();
             this.gameLoop();
             
             if (soundManager) soundManager.playBgm(this.level);
-        }, 50); // 50ms 지연
+        }
     }
     
     // 새 게임 시작 (게임 오버 후)
@@ -1058,33 +1119,41 @@ class TetrisGame {
         if (!this.gameRunning || this.gamePaused || this.gameOver) return;
         
         e.preventDefault();
-        const touch = e.touches[0];
-        this.touchStartX = touch.clientX;
-        this.touchStartY = touch.clientY;
-        this.touchStartTime = Date.now();
-        this.isDragging = false;
+        e.stopPropagation();
+        
+        if (e.touches.length > 0) {
+            const touch = e.touches[0];
+            this.touchStartX = touch.clientX;
+            this.touchStartY = touch.clientY;
+            this.touchStartTime = Date.now();
+            this.isDragging = false;
+        }
     }
     
     handleTouchMove(e) {
         if (!this.gameRunning || this.gamePaused || this.gameOver) return;
         
         e.preventDefault();
-        const touch = e.touches[0];
-        const deltaX = touch.clientX - this.touchStartX;
-        const deltaY = touch.clientY - this.touchStartY;
+        e.stopPropagation();
         
-        // 드래그 감지
-        if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
-            this.isDragging = true;
+        if (e.touches.length > 0) {
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - this.touchStartX;
+            const deltaY = touch.clientY - this.touchStartY;
             
-            // 수평 이동
-            if (Math.abs(deltaX) > this.minSwipeDistance / 2) {
-                if (deltaX > 0) {
-                    this.movePiece(1, 0);
-                } else {
-                    this.movePiece(-1, 0);
+            // 드래그 감지
+            if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+                this.isDragging = true;
+                
+                // 수평 이동
+                if (Math.abs(deltaX) > this.minSwipeDistance / 2) {
+                    if (deltaX > 0) {
+                        this.movePiece(1, 0);
+                    } else {
+                        this.movePiece(-1, 0);
+                    }
+                    this.touchStartX = touch.clientX;
                 }
-                this.touchStartX = touch.clientX;
             }
         }
     }
@@ -1093,12 +1162,14 @@ class TetrisGame {
         if (!this.gameRunning || this.gamePaused || this.gameOver) return;
         
         e.preventDefault();
+        e.stopPropagation();
+        
         const touchDuration = Date.now() - this.touchStartTime;
         
         if (!this.isDragging && touchDuration < 300) {
             // 짧은 터치 = 회전
             this.rotatePiece();
-        } else if (this.isDragging) {
+        } else if (this.isDragging && e.changedTouches.length > 0) {
             const touch = e.changedTouches[0];
             const deltaY = touch.clientY - this.touchStartY;
             
@@ -1175,8 +1246,17 @@ class TetrisGame {
             y: 0
         };
         
+        console.log('Spawning new piece:', {
+            type: this.currentPiece.type,
+            x: this.currentPiece.x,
+            y: this.currentPiece.y,
+            boardWidth: this.BOARD_WIDTH,
+            boardHeight: this.BOARD_HEIGHT
+        });
+        
         // 게임 오버 체크
         if (this.checkCollision(this.currentPiece.x, this.currentPiece.y, this.currentPiece.shape)) {
+            console.error('Game over on spawn - collision detected');
             this.endGame();
             return;
         }
@@ -1259,6 +1339,12 @@ class TetrisGame {
     
     // 충돌 검사
     checkCollision(x, y, shape) {
+        // 보드가 제대로 초기화되었는지 확인
+        if (!this.board || this.board.length === 0) {
+            console.error('Board not initialized properly');
+            return true;
+        }
+        
         for (let row = 0; row < shape.length; row++) {
             for (let col = 0; col < shape[row].length; col++) {
                 if (shape[row][col]) {
@@ -1272,7 +1358,7 @@ class TetrisGame {
                     }
                     
                     // 보드와의 충돌 검사
-                    if (newY >= 0 && this.board[newY][newX]) {
+                    if (newY >= 0 && this.board[newY] && this.board[newY][newX]) {
                         return true;
                     }
                 }
@@ -1730,5 +1816,14 @@ let tetrisGame;
 
 // DOM 로드 완료 시 게임 초기화
 document.addEventListener('DOMContentLoaded', () => {
-    tetrisGame = new TetrisGame();
+// 모바일에서는 약간의 지연을 주어 완전히 로드되도록 함
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+        setTimeout(() => {
+            tetrisGame = new TetrisGame();
+        }, 100);
+    } else {
+        tetrisGame = new TetrisGame();
+    }
 });
