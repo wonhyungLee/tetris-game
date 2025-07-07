@@ -495,7 +495,11 @@ class TetrisGame {
     
     showGameScreen() {
         this.hideAllScreens();
-        document.getElementById('gameScreen').classList.remove('hidden');
+        const gameScreen = document.getElementById('gameScreen');
+        if (gameScreen) {
+            gameScreen.classList.remove('hidden');
+            gameScreen.style.display = 'block'; // 명시적으로 display 설정
+        }
         // 게임 화면에서는 modal-active 클래스 제거
         document.body.classList.remove('modal-active');
     }
@@ -510,6 +514,9 @@ class TetrisGame {
             screenSize: { width: window.innerWidth, height: window.innerHeight }
         });
         
+        // 게임 오버 시 modal-active 클래스 추가 (화면 전환을 위해)
+        document.body.classList.add('modal-active');
+        
         // 모바일에서는 팝업으로 표시, PC에서는 일반 화면으로 표시
         if (isMobileNow) {
             console.log('모바일 게임 오버 팝업 표시');
@@ -518,7 +525,11 @@ class TetrisGame {
             console.log('PC 게임 오버 화면 표시');
             // PC에서는 기존 방식 사용
             this.hideAllScreens();
-            document.getElementById('gameOverScreen').classList.remove('hidden');
+            const gameOverScreen = document.getElementById('gameOverScreen');
+            if (gameOverScreen) {
+                gameOverScreen.classList.remove('hidden');
+                gameOverScreen.style.display = 'block'; // 명시적으로 display 설정
+            }
             document.getElementById('finalScore').textContent = this.score.toLocaleString();
             document.getElementById('finalLevel').textContent = this.level;
         }
@@ -615,13 +626,18 @@ class TetrisGame {
     
     showPauseScreen() {
         this.hideAllScreens();
-        document.getElementById('pauseScreen').classList.remove('hidden');
+        const pauseScreen = document.getElementById('pauseScreen');
+        if (pauseScreen) {
+            pauseScreen.classList.remove('hidden');
+            pauseScreen.style.display = 'flex'; // 명시적으로 display 설정
+        }
     }
     
     hideAllScreens() {
         // 모든 화면 숨기기
         document.querySelectorAll('.screen').forEach(screen => {
             screen.classList.add('hidden');
+            screen.style.display = 'none'; // 명시적으로 display none 설정
         });
         
         // 모바일 팝업도 숨기기

@@ -75,10 +75,10 @@ body.game-active {
 
 /* hidden 클래스가 있으면 완전히 숨김 */
 .screen.hidden {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
+    display: none;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
     z-index: -1;
 }
 
@@ -102,8 +102,14 @@ body.game-active {
     justify-content: center;
     min-height: 80vh;
     max-width: 400px;
-    margin: 0 auto;
-    padding: 20px;
+}
+
+.subtitle {
+    font-size: 1.1rem;
+    color: #ecf0f1;
+    margin: 10px 0 30px 0;
+    opacity: 0.9;
+    text-align: center;
 }
 
 #startScreen h1 {
