@@ -1633,20 +1633,23 @@ class TetrisGame {
     // 일시정지 토글
     togglePause() {
         if (!this.gameRunning || this.gameOver) return;
-        
+
         this.gamePaused = !this.gamePaused;
-        
+
+        const pauseScreen = document.getElementById('pauseScreen');
+
         if (this.gamePaused) {
-            this.enableScroll();
-            this.hideAllScreens();
-            document.getElementById('pauseScreen').classList.remove('hidden');
-            
+            // 게임 화면 위에 일시정지 화면을 오버레이로 표시
+            pauseScreen.classList.remove('hidden');
+            pauseScreen.style.display = 'flex';
+            // gameScreen을 숨기지 않음
+
             if (soundManager) soundManager.playPause();
         } else {
-            document.body.classList.remove('modal-active');
-            this.disableScroll();
-            this.hideAllScreens();
-            document.getElementById('gameScreen').classList.remove('hidden');
+            // 일시정지 화면 숨기기
+            pauseScreen.classList.add('hidden');
+            pauseScreen.style.display = 'none';
+
             if (soundManager) soundManager.resumeFromPause();
             this.lastTime = performance.now();
             this.gameLoop();
